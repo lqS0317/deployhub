@@ -21,7 +21,5 @@ frontend/.env.local
 *.out
 
 # Specs internal
-specs/
 .specify/
 .cursor/
-.hsk-superpowers/

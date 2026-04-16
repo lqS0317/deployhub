@@ -1,0 +1,195 @@
+<h2>核心数据模型</h2>
+<p class="subtitle">实体关系与核心字段</p>
+
+<div class="mockup">
+  <div class="mockup-header">Entity Relationship</div>
+  <div class="mockup-body" style="padding: 24px; font-size: 13px; line-height: 1.5;">
+
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+
+      <!-- User -->
+      <div style="flex: 1; min-width: 220px; background: #1e293b; border: 2px solid #6366f1; border-radius: 10px; padding: 14px;">
+        <div style="color: #6366f1; font-weight: bold; font-size: 14px; margin-bottom: 8px;">👤 User</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, username, email<br>
+          password_hash (nullable)<br>
+          oauth_provider, oauth_id<br>
+          role: <span style="color:#fbbf24">admin | member</span><br>
+          avatar, status<br>
+          created_at, updated_at
+        </div>
+      </div>
+
+      <!-- Cluster -->
+      <div style="flex: 1; min-width: 220px; background: #1e293b; border: 2px solid #8b5cf6; border-radius: 10px; padding: 14px;">
+        <div style="color: #8b5cf6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">☸️ Cluster</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, name, display_name<br>
+          env: <span style="color:#fbbf24">dev | staging | prod</span><br>
+          api_server, kubeconfig (encrypted)<br>
+          status: <span style="color:#fbbf24">active | inactive</span><br>
+          created_at, updated_at
+        </div>
+      </div>
+
+      <!-- Git Repository -->
+      <div style="flex: 1; min-width: 220px; background: #1e293b; border: 2px solid #ec4899; border-radius: 10px; padding: 14px;">
+        <div style="color: #ec4899; font-weight: bold; font-size: 14px; margin-bottom: 8px;">🔗 GitRepo</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, name, url<br>
+          provider: <span style="color:#fbbf24">github | gitlab | other</span><br>
+          auth_type: <span style="color:#fbbf24">token | ssh_key</span><br>
+          credential (encrypted)<br>
+          created_at, updated_at
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; color: #64748b; margin: 12px 0; font-size: 20px;">↕ ↕ ↕</div>
+
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+
+      <!-- Service -->
+      <div style="flex: 1.5; min-width: 280px; background: #1e293b; border: 2px solid #10b981; border-radius: 10px; padding: 14px;">
+        <div style="color: #10b981; font-weight: bold; font-size: 14px; margin-bottom: 8px;">📦 Service (核心实体)</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, name, display_name, description<br>
+          git_repo_id → GitRepo<br>
+          git_branch (default build branch)<br>
+          dockerfile_path (default: ./Dockerfile)<br>
+          image_repo (registry/org/name)<br>
+          <span style="color: #86efac;">--- 部署配置 ---</span><br>
+          replicas, cpu_request, mem_request<br>
+          cpu_limit, mem_limit<br>
+          port, health_check_path<br>
+          env_vars (jsonb), volumes (jsonb)<br>
+          <span style="color: #86efac;">--- 权限 ---</span><br>
+          owner_id → User (负责人)<br>
+          cluster_id → Cluster<br>
+          namespace<br>
+          created_at, updated_at
+        </div>
+      </div>
+
+      <!-- Service Member -->
+      <div style="flex: 1; min-width: 220px; background: #1e293b; border: 2px solid #14b8a6; border-radius: 10px; padding: 14px;">
+        <div style="color: #14b8a6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">🔑 ServiceMember</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id<br>
+          service_id → Service<br>
+          user_id → User<br>
+          role: <span style="color:#fbbf24">owner | developer | viewer</span><br>
+          created_at
+        </div>
+        <div style="margin-top: 10px; padding: 8px; background: #0f172a; border-radius: 6px; font-size: 11px; color: #94a3b8;">
+          owner — 可审批、可发布、可配置<br>
+          developer — 可发起构建和发布<br>
+          viewer — 只读
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; color: #64748b; margin: 12px 0; font-size: 20px;">↓ ↓</div>
+
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+
+      <!-- Build -->
+      <div style="flex: 1; min-width: 260px; background: #1e293b; border: 2px solid #f59e0b; border-radius: 10px; padding: 14px;">
+        <div style="color: #f59e0b; font-weight: bold; font-size: 14px; margin-bottom: 8px;">🔨 Build</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, service_id → Service<br>
+          trigger_user_id → User<br>
+          git_branch, git_commit<br>
+          image_tag (生成的镜像 tag)<br>
+          status: <span style="color:#fbbf24">pending | building |<br>
+          &nbsp;&nbsp;success | failed | cancelled</span><br>
+          build_cluster_id → Cluster<br>
+          kaniko_job_name<br>
+          log (text, 构建日志)<br>
+          started_at, finished_at<br>
+          created_at
+        </div>
+      </div>
+
+      <!-- Deployment -->
+      <div style="flex: 1; min-width: 260px; background: #1e293b; border: 2px solid #3b82f6; border-radius: 10px; padding: 14px;">
+        <div style="color: #3b82f6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">🚀 Deployment</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, service_id → Service<br>
+          build_id → Build<br>
+          trigger_user_id → User<br>
+          cluster_id → Cluster<br>
+          namespace<br>
+          image_tag<br>
+          replicas<br>
+          status: <span style="color:#fbbf24">pending_approval |<br>
+          &nbsp;&nbsp;approved | deploying |<br>
+          &nbsp;&nbsp;success | failed | rolled_back</span><br>
+          previous_image_tag (回滚用)<br>
+          started_at, finished_at<br>
+          created_at
+        </div>
+      </div>
+
+      <!-- Approval -->
+      <div style="flex: 1; min-width: 260px; background: #1e293b; border: 2px solid #f43f5e; border-radius: 10px; padding: 14px;">
+        <div style="color: #f43f5e; font-weight: bold; font-size: 14px; margin-bottom: 8px;">✅ Approval</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id<br>
+          deployment_id → Deployment<br>
+          requester_id → User<br>
+          approver_id → User (服务负责人)<br>
+          status: <span style="color:#fbbf24">pending | approved |<br>
+          &nbsp;&nbsp;rejected</span><br>
+          comment (审批意见)<br>
+          decided_at<br>
+          created_at
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; color: #64748b; margin: 12px 0; font-size: 20px;">↓</div>
+
+    <!-- Notification & AuditLog -->
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 260px; background: #1e293b; border: 2px solid #06b6d4; border-radius: 10px; padding: 14px;">
+        <div style="color: #06b6d4; font-weight: bold; font-size: 14px; margin-bottom: 8px;">🔔 Notification</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, user_id → User<br>
+          type: <span style="color:#fbbf24">approval_request |<br>
+          &nbsp;&nbsp;build_complete | deploy_result</span><br>
+          title, content<br>
+          is_read (bool)<br>
+          reference_type, reference_id<br>
+          created_at
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 260px; background: #1e293b; border: 2px solid #64748b; border-radius: 10px; padding: 14px;">
+        <div style="color: #94a3b8; font-weight: bold; font-size: 14px; margin-bottom: 8px;">📋 AuditLog</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, user_id → User<br>
+          action: <span style="color:#fbbf24">create_service |<br>
+          &nbsp;&nbsp;trigger_build | deploy |<br>
+          &nbsp;&nbsp;rollback | approve | ...</span><br>
+          resource_type, resource_id<br>
+          detail (jsonb)<br>
+          ip_address<br>
+          created_at
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 260px; background: #1e293b; border: 2px solid #a78bfa; border-radius: 10px; padding: 14px;">
+        <div style="color: #a78bfa; font-weight: bold; font-size: 14px; margin-bottom: 8px;">🔧 Registry</div>
+        <div style="font-family: monospace; font-size: 12px; color: #cbd5e1;">
+          id, name, url<br>
+          provider: <span style="color:#fbbf24">ecr | acr | tcr | harbor</span><br>
+          auth_config (encrypted, jsonb)<br>
+          is_default (bool)<br>
+          created_at, updated_at
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

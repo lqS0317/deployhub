@@ -1,0 +1,86 @@
+<h2>系统整体架构</h2>
+<p class="subtitle">DeployHub — 运维发布系统</p>
+
+<div class="mockup">
+  <div class="mockup-header">Architecture Overview</div>
+  <div class="mockup-body" style="padding: 24px; font-family: monospace; font-size: 13px; line-height: 1.6;">
+    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+
+      <!-- Users -->
+      <div style="text-align: center;">
+        <div style="background: #6366f1; color: white; padding: 12px 20px; border-radius: 8px; font-weight: bold;">
+          👤 用户 (浏览器)
+        </div>
+        <div style="margin: 8px 0; color: #888;">↓ HTTPS</div>
+      </div>
+    </div>
+
+    <!-- Frontend -->
+    <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 12px; padding: 16px; margin: 12px 0;">
+      <div style="color: #3b82f6; font-weight: bold; margin-bottom: 8px;">🖥️ 前端 — Next.js (React)</div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <span style="background: #1e3a5f; padding: 4px 10px; border-radius: 4px; color: #93c5fd; font-size: 12px;">服务管理</span>
+        <span style="background: #1e3a5f; padding: 4px 10px; border-radius: 4px; color: #93c5fd; font-size: 12px;">构建中心</span>
+        <span style="background: #1e3a5f; padding: 4px 10px; border-radius: 4px; color: #93c5fd; font-size: 12px;">发布管理</span>
+        <span style="background: #1e3a5f; padding: 4px 10px; border-radius: 4px; color: #93c5fd; font-size: 12px;">日志查看</span>
+        <span style="background: #1e3a5f; padding: 4px 10px; border-radius: 4px; color: #93c5fd; font-size: 12px;">审批中心</span>
+        <span style="background: #1e3a5f; padding: 4px 10px; border-radius: 4px; color: #93c5fd; font-size: 12px;">系统设置</span>
+      </div>
+    </div>
+
+    <div style="text-align: center; color: #888; margin: 4px 0;">↕ REST API + WebSocket</div>
+
+    <!-- Backend -->
+    <div style="background: #1e293b; border: 2px solid #10b981; border-radius: 12px; padding: 16px; margin: 12px 0;">
+      <div style="color: #10b981; font-weight: bold; margin-bottom: 8px;">⚙️ 后端 — Go (Gin/Echo)</div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">Auth 模块</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">服务管理</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">构建引擎</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">发布引擎</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">审批引擎</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">通知引擎</span>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">集群管理</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">日志流</span>
+        <span style="background: #1a3a2a; padding: 4px 10px; border-radius: 4px; color: #86efac; font-size: 12px;">配置导入</span>
+      </div>
+    </div>
+
+    <div style="text-align: center; color: #888; margin: 4px 0;">↕</div>
+
+    <!-- Data & External -->
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <!-- Database -->
+      <div style="flex: 1; min-width: 200px; background: #1e293b; border: 2px solid #f59e0b; border-radius: 12px; padding: 16px;">
+        <div style="color: #f59e0b; font-weight: bold; margin-bottom: 8px;">💾 数据存储</div>
+        <div style="color: #fcd34d; font-size: 12px;">PostgreSQL — 服务/发布/用户数据</div>
+        <div style="color: #fcd34d; font-size: 12px;">Redis — 会话/缓存/消息队列</div>
+      </div>
+
+      <!-- K8s Clusters -->
+      <div style="flex: 1; min-width: 200px; background: #1e293b; border: 2px solid #8b5cf6; border-radius: 12px; padding: 16px;">
+        <div style="color: #8b5cf6; font-weight: bold; margin-bottom: 8px;">☸️ K8s 集群</div>
+        <div style="color: #c4b5fd; font-size: 12px;">Dev Cluster — client-go</div>
+        <div style="color: #c4b5fd; font-size: 12px;">Staging Cluster — client-go</div>
+        <div style="color: #c4b5fd; font-size: 12px;">Prod Cluster — client-go</div>
+      </div>
+
+      <!-- External -->
+      <div style="flex: 1; min-width: 200px; background: #1e293b; border: 2px solid #ec4899; border-radius: 12px; padding: 16px;">
+        <div style="color: #ec4899; font-weight: bold; margin-bottom: 8px;">🔗 外部集成</div>
+        <div style="color: #f9a8d4; font-size: 12px;">Git 仓库 (GitHub/GitLab/...)</div>
+        <div style="color: #f9a8d4; font-size: 12px;">容器镜像 Registry</div>
+        <div style="color: #f9a8d4; font-size: 12px;">通知渠道 (飞书/钉钉/Slack)</div>
+      </div>
+    </div>
+
+    <!-- Build flow note -->
+    <div style="margin-top: 16px; padding: 12px; background: #1a1a2e; border-left: 3px solid #6366f1; border-radius: 4px;">
+      <div style="color: #a5b4fc; font-size: 12px;">
+        <strong>构建流程：</strong>后端创建 Kaniko Job → K8s 集群内 Pod 执行 → 拉取 Git 源码 → 构建镜像 → 推送到 Registry → 回调通知构建完成
+      </div>
+    </div>
+  </div>
+</div>

@@ -158,7 +158,11 @@ func (e *BuildExecutor) run(buildID uint) {
 	if dockerfilePath == "" || dockerfilePath == "./Dockerfile" {
 		dockerfilePath = svc.DockerfilePath
 	}
-	job := e.buildKanikoJob(jobName, namespace, gitURL, build.GitBranch, build.GitCommit, dockerfilePath, fullImage, registry, secretName)
+	buildCtx := build.BuildContext
+	if buildCtx == "" {
+		buildCtx = "."
+	}
+	job := e.buildKanikoJob(jobName, namespace, gitURL, build.GitBranch, build.GitCommit, dockerfilePath, fullImage, buildCtx, registry, secretName)
 
 	_, err = clientset.BatchV1().Jobs(namespace).Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
@@ -172,7 +176,7 @@ func (e *BuildExecutor) run(buildID uint) {
 	e.watchJob(ctx, clientset, buildID, jobName, namespace)
 }
 
-func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commit, dockerfile, destination string, registry *model.Registry, dockerSecretName string) *batchv1.Job {
+func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commit, dockerfile, destination, buildContext string, registry *model.Registry, dockerSecretName string) *batchv1.Job {
 	backoffLimit := int32(0)
 	ttl := int32(3600)
 
@@ -187,6 +191,10 @@ func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commi
 		fmt.Sprintf("--destination=%s", destination),
 		"--cache=true",
 		"--snapshot-mode=redo",
+	}
+	// 支持 monorepo：指定构建子目录
+	if buildContext != "" && buildContext != "." && buildContext != "./" {
+		args = append(args, fmt.Sprintf("--context-sub-path=%s", buildContext))
 	}
 
 	// 如果使用非 HTTPS 的 registry 则加 insecure 标志
