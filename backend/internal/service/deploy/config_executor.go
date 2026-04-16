@@ -70,7 +70,14 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 	}
 
 	port := resolvePort(dep, svc)
-	replicas := int32(svc.Replicas)
+	replicasVal := svc.DefaultReplicas
+	if replicasVal <= 0 {
+		replicasVal = svc.Replicas
+	}
+	if replicasVal <= 0 {
+		replicasVal = 1
+	}
+	replicas := int32(replicasVal)
 	name := svc.Name
 	labels := map[string]string{"app": name, "managed-by": "deployhub"}
 
@@ -146,7 +153,15 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 		container.Ports = []corev1.ContainerPort{{Name: "main", ContainerPort: int32(port), Protocol: corev1.ProtocolTCP}}
 	}
 
-	container.Resources = buildResources(svc.CPURequest, svc.MemRequest, svc.CPULimit, svc.MemLimit)
+	cpuReq := svc.DefaultCPURequest
+	if cpuReq == "" { cpuReq = svc.CPURequest }
+	memReq := svc.DefaultMemRequest
+	if memReq == "" { memReq = svc.MemRequest }
+	cpuLim := svc.DefaultCPULimit
+	if cpuLim == "" { cpuLim = svc.CPULimit }
+	memLim := svc.DefaultMemLimit
+	if memLim == "" { memLim = svc.MemLimit }
+	container.Resources = buildResources(cpuReq, memReq, cpuLim, memLim)
 
 	podSpec := corev1.PodSpec{
 		Containers: []corev1.Container{container},
@@ -279,7 +294,11 @@ func resolveImageRepo(dep *model.Deployment, svc *model.Service) string {
 	if dep.ExternalImage != "" {
 		return ""
 	}
-	if svc != nil {
+	// 优先从 Build 记录读取镜像路径
+	if dep.Build != nil && dep.Build.ImageRepo != "" {
+		return dep.Build.ImageRepo
+	}
+	if svc != nil && svc.ImageRepo != "" {
 		return svc.ImageRepo
 	}
 	return ""

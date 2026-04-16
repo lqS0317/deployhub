@@ -203,6 +203,9 @@ func (e *DirectExecutor) updateK8sStatefulSet(ctx context.Context, client v1.Sta
 
 // resolvePort 从 service 解析端口
 func resolvePort(deployment *model.Deployment, service *model.Service) int {
+	if service.DefaultPort > 0 {
+		return service.DefaultPort
+	}
 	if service.Port > 0 {
 		return service.Port
 	}
