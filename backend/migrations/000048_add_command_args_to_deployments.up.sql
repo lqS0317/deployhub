@@ -1,0 +1,2 @@
+ALTER TABLE deployments ADD COLUMN command JSONB DEFAULT '[]';
+ALTER TABLE deployments ADD COLUMN args JSONB DEFAULT '[]';

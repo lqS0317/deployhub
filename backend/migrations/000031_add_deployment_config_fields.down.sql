@@ -1,0 +1,12 @@
+ALTER TABLE deployments DROP COLUMN IF EXISTS helm_chart_branch;
+ALTER TABLE deployments DROP COLUMN IF EXISTS helm_release_name;
+ALTER TABLE deployments DROP COLUMN IF EXISTS helm_chart_path;
+ALTER TABLE deployments DROP COLUMN IF EXISTS helm_repo_id;
+ALTER TABLE deployments DROP COLUMN IF EXISTS health_check_path;
+ALTER TABLE deployments DROP COLUMN IF EXISTS mem_limit;
+ALTER TABLE deployments DROP COLUMN IF EXISTS cpu_limit;
+ALTER TABLE deployments DROP COLUMN IF EXISTS mem_request;
+ALTER TABLE deployments DROP COLUMN IF EXISTS cpu_request;
+ALTER TABLE deployments DROP COLUMN IF EXISTS port;
+ALTER TABLE deployments DROP COLUMN IF EXISTS workload_type;
+ALTER TABLE deployments DROP COLUMN IF EXISTS deploy_type;

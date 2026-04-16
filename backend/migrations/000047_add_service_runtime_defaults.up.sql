@@ -1,0 +1,10 @@
+ALTER TABLE services ADD COLUMN default_port INTEGER DEFAULT 0;
+ALTER TABLE services ADD COLUMN default_replicas INTEGER DEFAULT 1;
+ALTER TABLE services ADD COLUMN default_cpu_request VARCHAR(20) DEFAULT '';
+ALTER TABLE services ADD COLUMN default_mem_request VARCHAR(20) DEFAULT '';
+ALTER TABLE services ADD COLUMN default_cpu_limit VARCHAR(20) DEFAULT '';
+ALTER TABLE services ADD COLUMN default_mem_limit VARCHAR(20) DEFAULT '';
+ALTER TABLE services ADD COLUMN default_command JSONB DEFAULT '[]';
+ALTER TABLE services ADD COLUMN default_args JSONB DEFAULT '[]';
+ALTER TABLE services ADD COLUMN default_volume_claim_templates JSONB DEFAULT '[]';
+ALTER TABLE services ADD COLUMN default_workload_type VARCHAR(20) DEFAULT 'deployment';

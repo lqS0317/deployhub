@@ -1,0 +1,5 @@
+ALTER TABLE builds DROP COLUMN IF EXISTS build_context;
+ALTER TABLE builds DROP COLUMN IF EXISTS image_repo;
+ALTER TABLE builds DROP COLUMN IF EXISTS registry_id;
+ALTER TABLE builds DROP COLUMN IF EXISTS dockerfile_path;
+ALTER TABLE builds DROP COLUMN IF EXISTS name;

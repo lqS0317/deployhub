@@ -1,0 +1,11 @@
+ALTER TABLE deployments ADD COLUMN direct_mode VARCHAR(10) DEFAULT '';
+ALTER TABLE deployments ADD COLUMN raw_yaml TEXT DEFAULT '';
+ALTER TABLE deployments ADD COLUMN env_vars JSONB DEFAULT '[]';
+ALTER TABLE deployments ADD COLUMN volumes JSONB DEFAULT '[]';
+ALTER TABLE deployments ADD COLUMN volume_claim_templates JSONB DEFAULT '[]';
+ALTER TABLE deployments ADD COLUMN secret_refs JSONB DEFAULT '[]';
+ALTER TABLE deployments ADD COLUMN config_map_refs JSONB DEFAULT '[]';
+ALTER TABLE deployments ADD COLUMN service_account_name VARCHAR(100) DEFAULT '';
+ALTER TABLE deployments ADD COLUMN service_spec JSONB DEFAULT '{}';
+ALTER TABLE deployments ADD COLUMN liveness_probe JSONB DEFAULT '{}';
+ALTER TABLE deployments ADD COLUMN readiness_probe JSONB DEFAULT '{}';

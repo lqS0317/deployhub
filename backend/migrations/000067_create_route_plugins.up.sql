@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS route_plugins (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    yaml_content TEXT DEFAULT '',
+    created_by_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

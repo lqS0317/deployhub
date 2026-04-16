@@ -1,0 +1,2 @@
+ALTER TABLE deployments DROP COLUMN IF EXISTS args;
+ALTER TABLE deployments DROP COLUMN IF EXISTS command;

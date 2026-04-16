@@ -1,0 +1,11 @@
+ALTER TABLE deployments DROP COLUMN IF EXISTS readiness_probe;
+ALTER TABLE deployments DROP COLUMN IF EXISTS liveness_probe;
+ALTER TABLE deployments DROP COLUMN IF EXISTS service_spec;
+ALTER TABLE deployments DROP COLUMN IF EXISTS service_account_name;
+ALTER TABLE deployments DROP COLUMN IF EXISTS config_map_refs;
+ALTER TABLE deployments DROP COLUMN IF EXISTS secret_refs;
+ALTER TABLE deployments DROP COLUMN IF EXISTS volume_claim_templates;
+ALTER TABLE deployments DROP COLUMN IF EXISTS volumes;
+ALTER TABLE deployments DROP COLUMN IF EXISTS env_vars;
+ALTER TABLE deployments DROP COLUMN IF EXISTS raw_yaml;
+ALTER TABLE deployments DROP COLUMN IF EXISTS direct_mode;

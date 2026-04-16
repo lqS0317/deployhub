@@ -1,0 +1,10 @@
+ALTER TABLE services DROP COLUMN IF EXISTS default_workload_type;
+ALTER TABLE services DROP COLUMN IF EXISTS default_volume_claim_templates;
+ALTER TABLE services DROP COLUMN IF EXISTS default_args;
+ALTER TABLE services DROP COLUMN IF EXISTS default_command;
+ALTER TABLE services DROP COLUMN IF EXISTS default_mem_limit;
+ALTER TABLE services DROP COLUMN IF EXISTS default_cpu_limit;
+ALTER TABLE services DROP COLUMN IF EXISTS default_mem_request;
+ALTER TABLE services DROP COLUMN IF EXISTS default_cpu_request;
+ALTER TABLE services DROP COLUMN IF EXISTS default_replicas;
+ALTER TABLE services DROP COLUMN IF EXISTS default_port;
