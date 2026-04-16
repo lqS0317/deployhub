@@ -211,7 +211,7 @@ export function ApisixRouteForm({ value, onChange }: ApisixRouteFormProps) {
                     <input type="number" value={b.weight} placeholder="wt"
                       onChange={e => { const bs = [...rule.backends]; bs[bi] = { ...bs[bi], weight: e.target.value }; setRules(rules.map((r, i) => i === ri ? { ...r, backends: bs } : r)); }}
                       className={smInputCls} />
-                  </div>
+                      </div>
                   <div className="w-24">
                     <select value={b.resolveGranularity}
                       onChange={e => { const bs = [...rule.backends]; bs[bi] = { ...bs[bi], resolveGranularity: e.target.value }; setRules(rules.map((r, i) => i === ri ? { ...r, backends: bs } : r)); }}
@@ -220,7 +220,7 @@ export function ApisixRouteForm({ value, onChange }: ApisixRouteFormProps) {
                       <option value="endpoints">endpoints</option>
                       <option value="service">service</option>
                     </select>
-                  </div>
+                    </div>
                   {rule.backends.length > 1 && (
                     <button type="button" onClick={() => {
                       const bs = rule.backends.filter((_, idx) => idx !== bi);
@@ -293,7 +293,7 @@ export function ApisixRouteForm({ value, onChange }: ApisixRouteFormProps) {
                       setRules(rules.map((r, i) => i === ri ? { ...r, plugins: ps } : r));
                     }} className="rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-600 hover:bg-blue-100">
                       + {ap.name}
-                    </button>
+              </button>
                   ))}
                 </div>
               )}

@@ -13,3 +13,7 @@ type GitRepo struct {
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 }
+
+func (GitRepo) TableName() string {
+	return "git_repos"
+}

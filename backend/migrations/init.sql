@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS cluster_namespaces (
     UNIQUE(cluster_id, namespace)
 );
 
-CREATE TABLE IF NOT EXISTS git_repositories (
+CREATE TABLE IF NOT EXISTS git_repos (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     url VARCHAR(500) NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS services (
     name VARCHAR(100) UNIQUE NOT NULL,
     display_name VARCHAR(200) DEFAULT '',
     description TEXT DEFAULT '',
-    git_repo_id INTEGER NOT NULL REFERENCES git_repositories(id),
+    git_repo_id INTEGER NOT NULL REFERENCES git_repos(id),
     git_branch VARCHAR(200) NOT NULL DEFAULT 'main',
     dockerfile_path VARCHAR(500) NOT NULL DEFAULT './Dockerfile',
     registry_id INTEGER,
