@@ -20,9 +20,9 @@ frontend/.env.local
 *.test
 *.out
 
-# Specs internal
+# Internal tooling
 .specify/
 .cursor/
-
-spescs/
 .hsk-superpowers/
+specs/
+build_err.txt
