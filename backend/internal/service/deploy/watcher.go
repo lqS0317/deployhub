@@ -55,6 +55,28 @@ func (w *RolloutWatcher) Watch(deployment *model.Deployment, service *model.Serv
 	go w.watchRollout(deployment, service)
 }
 
+// RecoverStuckDeployments 启动时恢复卡在 deploying/pod_checking 状态的部署，
+// 将它们标记为失败（因为 watcher goroutine 随进程重启已丢失）
+func (w *RolloutWatcher) RecoverStuckDeployments() {
+	stuckStatuses := []string{
+		model.DeployStatusDeploying,
+		model.DeployStatusPodChecking,
+	}
+	deps, err := w.deploySvc.deployRepo.FindByStatuses(stuckStatuses)
+	if err != nil {
+		log.Printf("[RolloutWatcher] 查询卡住部署失败: %v", err)
+		return
+	}
+	for _, dep := range deps {
+		reason := fmt.Sprintf("服务重启导致部署监控中断（原状态: %s）", dep.Status)
+		log.Printf("[RolloutWatcher] 恢复卡住部署 ID=%d, 原状态=%s", dep.ID, dep.Status)
+		w.markFailed(dep.ID, reason)
+	}
+	if len(deps) > 0 {
+		log.Printf("[RolloutWatcher] 共恢复 %d 个卡住的部署", len(deps))
+	}
+}
+
 func (w *RolloutWatcher) watchRollout(deployment *model.Deployment, service *model.Service) {
 	cs, err := w.clientPool.GetClientset(deployment.ClusterID)
 	if err != nil {

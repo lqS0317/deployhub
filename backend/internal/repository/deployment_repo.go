@@ -15,4 +15,5 @@ type DeploymentRepository interface {
 	UpdatePodStatus(id uint, status, podStatus, podMessage string) error
 	UpdateField(id uint, field string, value interface{}) error
 	Delete(id uint) error
+	FindByStatuses(statuses []string) ([]model.Deployment, error)
 }

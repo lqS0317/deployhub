@@ -130,6 +130,7 @@ func main() {
 	}
 	helmExecutor := deploy.NewHelmExecutor(clientPool, deployRepo, gitRepoRepo, helmValuesRepo, cryptoSvc, wsHub, clusterRepo, settingSvc, notifDispatcher)
 	rolloutWatcher := deploy.NewRolloutWatcher(clientPool, deploySvc, wsHub, notifDispatcher)
+	rolloutWatcher.RecoverStuckDeployments()
 
 	// 初始化 Handler
 	authHandler := handler.NewAuthHandler(authSvc, jwtSvc, storageSvc)

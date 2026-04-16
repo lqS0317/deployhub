@@ -102,6 +102,12 @@ func (r *deploymentRepository) UpdateField(id uint, field string, value interfac
 	return r.db.Model(&model.Deployment{}).Where("id = ?", id).Update(field, value).Error
 }
 
+func (r *deploymentRepository) FindByStatuses(statuses []string) ([]model.Deployment, error) {
+	var deployments []model.Deployment
+	err := r.db.Preload("Service").Where("status IN ?", statuses).Find(&deployments).Error
+	return deployments, err
+}
+
 func (r *deploymentRepository) Delete(id uint) error {
 	// 级联删除关联审批记录
 	r.db.Where("deployment_id = ?", id).Delete(&model.Approval{})

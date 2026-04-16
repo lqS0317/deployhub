@@ -282,6 +282,8 @@ func (s *DeployService) CancelDeploy(id uint) error {
 		model.DeployStatusPendingApproval: true,
 		model.DeployStatusApproved:        true,
 		model.DeployStatusPreviewed:       true,
+		model.DeployStatusDeploying:       true,
+		model.DeployStatusPodChecking:     true,
 	}
 	if !cancellable[dep.Status] {
 		return fmt.Errorf("当前状态不允许取消: %s", dep.Status)
