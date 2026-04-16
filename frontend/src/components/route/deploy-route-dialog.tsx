@@ -25,15 +25,15 @@ export function DeployRouteDialog({
   const [clusterId, setClusterId] = useState("");
   const [namespace, setNamespace] = useState("default");
 
-  const { data: clusters = [] } = useQuery({
+  const { data: clustersRaw } = useQuery({
     queryKey: ["clusters"],
     queryFn: async () => {
       const res = await apiClient.get("/clusters");
-      const data = res.data;
-      return Array.isArray(data) ? data : (data as { items?: Cluster[] })?.items ?? [];
+      return res.data;
     },
     enabled: open,
   });
+  const clusters: Cluster[] = Array.isArray(clustersRaw) ? clustersRaw : clustersRaw?.items ?? [];
 
   const {
     data: preview,

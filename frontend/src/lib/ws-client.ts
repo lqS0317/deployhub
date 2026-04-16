@@ -1,4 +1,11 @@
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "";
+
+function resolveWsBase(): string {
+  if (WS_BASE_URL) return WS_BASE_URL;
+  if (typeof window === "undefined") return "";
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}`;
+}
 
 // 心跳间隔（毫秒）
 const HEARTBEAT_INTERVAL = 30000;
@@ -33,7 +40,7 @@ export class WSClient {
   connect(): void {
     this.isClosed = false;
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    const url = `${WS_BASE_URL}${this.options.url}${token ? `?token=${token}` : ""}`;
+    const url = `${resolveWsBase()}${this.options.url}${token ? `?token=${token}` : ""}`;
 
     this.ws = new WebSocket(url);
 

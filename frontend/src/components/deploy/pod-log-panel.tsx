@@ -64,7 +64,7 @@ export function PodLogPanel({ deploymentId }: Props) {
     if (!selectedPod || !selectedContainer) return;
 
     const token = localStorage.getItem("access_token") || "";
-    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8080/ws/deployments/${deploymentId}/pod-logs?token=${token}&pod=${selectedPod}&container=${selectedContainer}&tail=200`;
+    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/deployments/${deploymentId}/pod-logs?token=${token}&pod=${selectedPod}&container=${selectedContainer}&tail=200`;
 
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => setConnected(true);
