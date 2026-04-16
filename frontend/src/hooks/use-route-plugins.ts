@@ -17,7 +17,8 @@ export function usePlugins() {
     queryFn: async () => {
       const res = await apiClient.get("/route-plugins");
       const data = res.data;
-      return Array.isArray(data) ? data : (data as any)?.items ?? [];
+      const items = Array.isArray(data) ? data : (data as { items?: RoutePlugin[] })?.items ?? [];
+      return items as RoutePlugin[];
     },
   });
 }
@@ -105,7 +106,8 @@ export function usePluginDeployments(pluginId: number) {
         `/route-plugins/${pluginId}/deployments`
       );
       const data = res.data;
-      return Array.isArray(data) ? data : (data as any)?.items ?? [];
+      const items = Array.isArray(data) ? data : (data as { items?: PluginDeployment[] })?.items ?? [];
+      return items as PluginDeployment[];
     },
     enabled: pluginId > 0,
   });

@@ -22,7 +22,8 @@ export function useRouteEntries(resourceType?: string) {
         params: resourceType ? { resource_type: resourceType } : undefined,
       });
       const data = res.data;
-      return Array.isArray(data) ? data : (data as { items?: RouteEntry[] })?.items ?? [];
+      const items = Array.isArray(data) ? data : (data as { items?: RouteEntry[] })?.items ?? [];
+      return items as RouteEntry[];
     },
   });
 }
@@ -124,7 +125,8 @@ export function useEntryDeployments(entryId: number) {
         `/route-entries/${entryId}/deployments`
       );
       const data = res.data;
-      return Array.isArray(data) ? data : (data as { items?: RouteDeployment[] })?.items ?? [];
+      const items = Array.isArray(data) ? data : (data as { items?: RouteDeployment[] })?.items ?? [];
+      return items as RouteDeployment[];
     },
     enabled: entryId > 0,
   });

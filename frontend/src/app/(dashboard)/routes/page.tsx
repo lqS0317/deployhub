@@ -129,7 +129,7 @@ export default function RoutesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {entries.map((entry) => (
+              {entries.map((entry: RouteEntry) => (
                 <tr key={entry.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
                     {entry.name}

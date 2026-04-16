@@ -85,6 +85,17 @@ export interface Service {
   helm_release_name?: string;
   helm_chart_branch?: string;
   helm_env_file_path?: string;
+  default_port?: number;
+  default_replicas?: number;
+  default_cpu_request?: string;
+  default_mem_request?: string;
+  default_cpu_limit?: string;
+  default_mem_limit?: string;
+  default_command?: string[];
+  default_args?: string[];
+  default_workload_type?: string;
+  default_liveness_probe?: Record<string, unknown>;
+  default_readiness_probe?: Record<string, unknown>;
   created_at: string;
   updated_at?: string;
   git_repo?: GitRepo;
