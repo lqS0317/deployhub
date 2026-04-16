@@ -1,3 +1,0 @@
-{"type":"server-started","port":63298,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:63298","screen_dir":"/Users/sunyu/Desktop/devops/.hsk-superpowers/brainstorm/2966-1775111439"}
-fs.watch error: EMFILE: too many open files, watch
-{"type":"server-stopped","reason":"owner process exited"}
