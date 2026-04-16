@@ -15,5 +15,5 @@ type GitRepo struct {
 }
 
 func (GitRepo) TableName() string {
-	return "git_repos"
+	return "git_repositories"
 }
