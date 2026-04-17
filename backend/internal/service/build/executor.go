@@ -139,14 +139,28 @@ func (e *BuildExecutor) run(buildID uint) {
 
 	gitURL := buildGitURL(gitRepo.URL, gitRepo.AuthType, gitCredential)
 
-	// 构造完整镜像地址：优先 build.ImageRepo，fallback svc.ImageRepo
+	// 构造完整镜像地址
+	registryHost := strings.TrimPrefix(strings.TrimPrefix(registry.URL, "https://"), "http://")
+	registryHost = strings.TrimSuffix(registryHost, "/")
+
 	imageRepo := build.ImageRepo
 	if imageRepo == "" {
 		imageRepo = svc.ImageRepo
 	}
+
+	// ECR 场景：未配置 imageRepo 时，默认用 {registry_host}/{service_name}
+	isECRRegistry := registry.Provider == "ecr" || strings.Contains(registry.URL, ".ecr.")
+	if imageRepo == "" && isECRRegistry {
+		imageRepo = registryHost + "/" + svc.Name
+	}
+
+	// 非 ECR 或手动填了短路径时，自动补全域名前缀
+	if imageRepo != "" && !strings.Contains(imageRepo, ".") {
+		imageRepo = registryHost + "/" + imageRepo
+	}
+
 	fullImage := build.ImageTag
 	if !strings.Contains(fullImage, "/") {
-		// tag 不含 repo 路径，需要拼接
 		if imageRepo != "" {
 			fullImage = fmt.Sprintf("%s:%s", imageRepo, build.ImageTag)
 		}
@@ -228,10 +242,19 @@ func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commi
 		args = append(args, fmt.Sprintf("--insecure-registry=%s", strings.TrimPrefix(registry.URL, "http://")))
 	}
 
+	isECR := registry.Provider == "ecr" || strings.Contains(registry.URL, ".ecr.")
+
 	container := corev1.Container{
 		Name:  "kaniko",
 		Image: "gcr.io/kaniko-project/executor:latest",
 		Args:  args,
+	}
+
+	// ECR 通过 IRSA 认证：Kaniko 内置 ECR credential helper，设置 AWS_SDK_LOAD_CONFIG 即可
+	if isECR {
+		container.Env = []corev1.EnvVar{
+			{Name: "AWS_SDK_LOAD_CONFIG", Value: "true"},
+		}
 	}
 
 	var volumes []corev1.Volume
