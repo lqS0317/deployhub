@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS clusters (
     kubeconfig_encrypted TEXT NOT NULL,
     status VARCHAR(10) NOT NULL DEFAULT 'active',
     helm_service_account VARCHAR(100) DEFAULT '',
+    build_service_account VARCHAR(100) DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

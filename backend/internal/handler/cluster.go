@@ -23,12 +23,13 @@ func NewClusterHandler(clusterSvc *cluster.ClusterService, clientPool *cluster.C
 }
 
 type createClusterRequest struct {
-	Name               string `json:"name" binding:"required"`
-	DisplayName        string `json:"display_name"`
-	Env                string `json:"env" binding:"required"`
-	APIServer          string `json:"api_server"`
-	Kubeconfig         string `json:"kubeconfig" binding:"required"`
-	HelmServiceAccount string `json:"helm_service_account"`
+	Name                string `json:"name" binding:"required"`
+	DisplayName         string `json:"display_name"`
+	Env                 string `json:"env" binding:"required"`
+	APIServer           string `json:"api_server"`
+	Kubeconfig          string `json:"kubeconfig" binding:"required"`
+	HelmServiceAccount  string `json:"helm_service_account"`
+	BuildServiceAccount string `json:"build_service_account"`
 }
 
 // Create 创建集群
@@ -39,7 +40,7 @@ func (h *ClusterHandler) Create(c *gin.Context) {
 		return
 	}
 
-	result, err := h.clusterSvc.Create(req.Name, req.DisplayName, req.Env, req.APIServer, req.Kubeconfig, req.HelmServiceAccount)
+	result, err := h.clusterSvc.Create(req.Name, req.DisplayName, req.Env, req.APIServer, req.Kubeconfig, req.HelmServiceAccount, req.BuildServiceAccount)
 	if err != nil {
 		if strings.Contains(err.Error(), "已存在") {
 			pkg.Error(c, http.StatusConflict, pkg.CodeConflict, err.Error())
@@ -84,11 +85,12 @@ func (h *ClusterHandler) Get(c *gin.Context) {
 }
 
 type updateClusterRequest struct {
-	DisplayName        string  `json:"display_name"`
-	Env                string  `json:"env"`
-	APIServer          string  `json:"api_server"`
-	Kubeconfig         *string `json:"kubeconfig"`
-	HelmServiceAccount *string `json:"helm_service_account"`
+	DisplayName         string  `json:"display_name"`
+	Env                 string  `json:"env"`
+	APIServer           string  `json:"api_server"`
+	Kubeconfig          *string `json:"kubeconfig"`
+	HelmServiceAccount  *string `json:"helm_service_account"`
+	BuildServiceAccount *string `json:"build_service_account"`
 }
 
 // Update 更新集群
@@ -105,7 +107,7 @@ func (h *ClusterHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.clusterSvc.Update(uint(id), req.DisplayName, req.Env, req.APIServer, req.Kubeconfig, req.HelmServiceAccount)
+	result, err := h.clusterSvc.Update(uint(id), req.DisplayName, req.Env, req.APIServer, req.Kubeconfig, req.HelmServiceAccount, req.BuildServiceAccount)
 	if err != nil {
 		pkg.Error(c, http.StatusInternalServerError, pkg.CodeInternalError, err.Error())
 		return

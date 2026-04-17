@@ -30,6 +30,7 @@ type BuildExecutor struct {
 	serviceRepo     repository.ServiceRepository
 	registryRepo    repository.RegistryRepository
 	gitRepoRepo     repository.GitRepoRepository
+	clusterRepo     repository.ClusterRepository
 	cryptoSvc       *crypto.CryptoService
 	wsHub           *ws.Hub
 	notifDispatcher *notification.Dispatcher
@@ -42,6 +43,7 @@ func NewBuildExecutor(
 	serviceRepo repository.ServiceRepository,
 	registryRepo repository.RegistryRepository,
 	gitRepoRepo repository.GitRepoRepository,
+	clusterRepo repository.ClusterRepository,
 	cryptoSvc *crypto.CryptoService,
 	wsHub *ws.Hub,
 	notifDispatcher *notification.Dispatcher,
@@ -52,6 +54,7 @@ func NewBuildExecutor(
 		serviceRepo:     serviceRepo,
 		registryRepo:    registryRepo,
 		gitRepoRepo:     gitRepoRepo,
+		clusterRepo:     clusterRepo,
 		cryptoSvc:       cryptoSvc,
 		wsHub:           wsHub,
 		notifDispatcher: notifDispatcher,
@@ -162,7 +165,13 @@ func (e *BuildExecutor) run(buildID uint) {
 	if buildCtx == "" {
 		buildCtx = "."
 	}
-	job := e.buildKanikoJob(jobName, namespace, gitURL, build.GitBranch, build.GitCommit, dockerfilePath, fullImage, buildCtx, registry, secretName)
+
+	// 读取构建集群配置的 ServiceAccount（用于 IRSA 等场景，如推送 ECR 镜像）
+	buildSA := ""
+	if c, cerr := e.clusterRepo.FindByID(build.BuildClusterID); cerr == nil {
+		buildSA = c.BuildServiceAccount
+	}
+	job := e.buildKanikoJob(jobName, namespace, gitURL, build.GitBranch, build.GitCommit, dockerfilePath, fullImage, buildCtx, registry, secretName, buildSA)
 
 	_, err = clientset.BatchV1().Jobs(namespace).Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
@@ -176,7 +185,7 @@ func (e *BuildExecutor) run(buildID uint) {
 	e.watchJob(ctx, clientset, buildID, jobName, namespace)
 }
 
-func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commit, dockerfile, destination, buildContext string, registry *model.Registry, dockerSecretName string) *batchv1.Job {
+func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commit, dockerfile, destination, buildContext string, registry *model.Registry, dockerSecretName, serviceAccount string) *batchv1.Job {
 	backoffLimit := int32(0)
 	ttl := int32(3600)
 
@@ -222,9 +231,10 @@ func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commi
 						"managed-by": "deployhub",
 					},
 				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Containers: []corev1.Container{
+			Spec: corev1.PodSpec{
+				ServiceAccountName: serviceAccount,
+				RestartPolicy:      corev1.RestartPolicyNever,
+				Containers: []corev1.Container{
 						{
 							Name:  "kaniko",
 							Image: "gcr.io/kaniko-project/executor:latest",

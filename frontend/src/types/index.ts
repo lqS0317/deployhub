@@ -26,6 +26,7 @@ export interface Cluster {
   api_server?: string;
   status: "active" | "inactive";
   helm_service_account?: string;
+  build_service_account?: string;
   created_at: string;
   updated_at?: string;
 }

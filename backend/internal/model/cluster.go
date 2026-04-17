@@ -12,6 +12,7 @@ type Cluster struct {
 	KubeconfigEncrypted string    `gorm:"type:text;not null" json:"-"`
 	Status              string    `gorm:"type:varchar(10);not null;default:active" json:"status"`
 	HelmServiceAccount  string    `gorm:"type:varchar(100);default:''" json:"helm_service_account,omitempty"`
+	BuildServiceAccount string    `gorm:"type:varchar(100);default:''" json:"build_service_account,omitempty"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 }

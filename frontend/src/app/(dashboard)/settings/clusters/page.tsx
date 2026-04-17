@@ -12,6 +12,7 @@ interface ClusterForm {
   api_server: string;
   kubeconfig: string;
   helm_service_account: string;
+  build_service_account: string;
 }
 
 const emptyForm: ClusterForm = {
@@ -21,6 +22,7 @@ const emptyForm: ClusterForm = {
   api_server: "",
   kubeconfig: "",
   helm_service_account: "",
+  build_service_account: "",
 };
 
 // 集群管理页面：CRUD 集群配置、测试连接
@@ -105,6 +107,7 @@ export default function ClustersPage() {
       api_server: cluster.api_server || "",
       kubeconfig: "",
       helm_service_account: cluster.helm_service_account || "",
+      build_service_account: cluster.build_service_account || "",
     });
     setShowDialog(true);
   };
@@ -321,6 +324,17 @@ export default function ClustersPage() {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <p className="mt-1 text-xs text-gray-500">Helm Runner Job 使用的 ServiceAccount，留空使用 default</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Build ServiceAccount</label>
+                <input
+                  type="text"
+                  value={form.build_service_account}
+                  onChange={(e) => setForm({ ...form, build_service_account: e.target.value })}
+                  placeholder="留空则使用 default，例如: kaniko-builder"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">Kaniko 构建 Job 使用的 ServiceAccount（IRSA 推送 ECR 等场景），留空使用 default</p>
               </div>
             </div>
             <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">

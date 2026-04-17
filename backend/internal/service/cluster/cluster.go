@@ -23,7 +23,7 @@ func NewClusterService(repo repository.ClusterRepository, cryptoSvc *crypto.Cryp
 }
 
 // Create 创建集群（kubeconfig 加密存储）
-func (s *ClusterService) Create(name, displayName, env, apiServer, kubeconfig, helmServiceAccount string) (*model.Cluster, error) {
+func (s *ClusterService) Create(name, displayName, env, apiServer, kubeconfig, helmServiceAccount, buildServiceAccount string) (*model.Cluster, error) {
 	if _, err := s.repo.FindByName(name); err == nil {
 		return nil, fmt.Errorf("集群 %s 已存在", name)
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -43,6 +43,7 @@ func (s *ClusterService) Create(name, displayName, env, apiServer, kubeconfig, h
 		KubeconfigEncrypted: encrypted,
 		Status:              "active",
 		HelmServiceAccount:  helmServiceAccount,
+		BuildServiceAccount: buildServiceAccount,
 	}
 
 	if err := s.repo.Create(cluster); err != nil {
@@ -63,7 +64,7 @@ func (s *ClusterService) List(page, pageSize int) ([]model.Cluster, int64, error
 }
 
 // Update 更新集群
-func (s *ClusterService) Update(id uint, displayName, env, apiServer string, kubeconfig, helmServiceAccount *string) (*model.Cluster, error) {
+func (s *ClusterService) Update(id uint, displayName, env, apiServer string, kubeconfig, helmServiceAccount, buildServiceAccount *string) (*model.Cluster, error) {
 	cluster, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("集群不存在: %w", err)
@@ -87,6 +88,9 @@ func (s *ClusterService) Update(id uint, displayName, env, apiServer string, kub
 	}
 	if helmServiceAccount != nil {
 		cluster.HelmServiceAccount = *helmServiceAccount
+	}
+	if buildServiceAccount != nil {
+		cluster.BuildServiceAccount = *buildServiceAccount
 	}
 
 	if err := s.repo.Update(cluster); err != nil {
