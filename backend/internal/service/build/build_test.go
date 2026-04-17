@@ -147,7 +147,7 @@ func TestCreateBuild(t *testing.T) {
 		assert.Equal(t, "abc123", b.GitCommit)
 		assert.Equal(t, model.BuildStatusPending, b.Status)
 		assert.NotEmpty(t, b.ImageTag)
-		assert.Contains(t, b.ImageTag, "registry.example.com/test-svc:main-")
+		assert.Contains(t, b.ImageTag, "main-")
 	})
 
 	t.Run("服务不存在时创建失败", func(t *testing.T) {

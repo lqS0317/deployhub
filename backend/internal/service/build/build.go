@@ -57,7 +57,7 @@ func (s *BuildService) CreateBuild(serviceID, userID, buildClusterID uint, gitBr
 	}
 
 	if imageTag == "" {
-		imageTag = fmt.Sprintf("%s:%s-%d", effectiveImageRepo, gitBranch, time.Now().Unix())
+		imageTag = fmt.Sprintf("%s-%d", gitBranch, time.Now().Unix())
 	}
 
 	build := &model.Build{
