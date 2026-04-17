@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /tmp/aws /tmp/awscli.zip && \
     apt-get purge -y curl unzip && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
+ENV AWS_PAGER=""
 WORKDIR /app
 COPY --from=builder /app/deployhub .
 EXPOSE 8080

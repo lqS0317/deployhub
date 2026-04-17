@@ -106,7 +106,7 @@ func main() {
 	notifDispatcher := notification.NewDispatcher(notifRuleRepo, svcNotifRuleRepo, notifLogRepo, webhookSender)
 
 	buildSvc := build.NewBuildService(buildRepo, serviceRepo)
-	buildExecutor := build.NewBuildExecutor(clientPool, buildRepo, serviceRepo, registryRepo, gitRepoRepo, clusterRepo, cryptoSvc, wsHub, notifDispatcher)
+	buildExecutor := build.NewBuildExecutor(clientPool, buildRepo, serviceRepo, registryRepo, gitRepoRepo, clusterRepo, cryptoSvc, settingSvc, wsHub, notifDispatcher)
 	deploySvc := deploy.NewDeployService(deployRepo, serviceRepo, buildRepo)
 	approvalSvc := approval.NewApprovalService(approvalRepo, deployRepo, userRepo, notifDispatcher)
 	cfgSvc := configSvc.NewConfigService(configTemplateRepo, configEnvValueRepo, configVersionRepo, configDeployRepo, cryptoSvc, clientPool)

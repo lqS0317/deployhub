@@ -15,6 +15,7 @@ import (
 	"deployhub/internal/service/cluster"
 	"deployhub/internal/service/crypto"
 	"deployhub/internal/service/notification"
+	"deployhub/internal/service/setting"
 	"deployhub/internal/ws"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -32,6 +33,7 @@ type BuildExecutor struct {
 	gitRepoRepo     repository.GitRepoRepository
 	clusterRepo     repository.ClusterRepository
 	cryptoSvc       *crypto.CryptoService
+	settingSvc      *setting.SettingService
 	wsHub           *ws.Hub
 	notifDispatcher *notification.Dispatcher
 }
@@ -45,6 +47,7 @@ func NewBuildExecutor(
 	gitRepoRepo repository.GitRepoRepository,
 	clusterRepo repository.ClusterRepository,
 	cryptoSvc *crypto.CryptoService,
+	settingSvc *setting.SettingService,
 	wsHub *ws.Hub,
 	notifDispatcher *notification.Dispatcher,
 ) *BuildExecutor {
@@ -56,9 +59,18 @@ func NewBuildExecutor(
 		gitRepoRepo:     gitRepoRepo,
 		clusterRepo:     clusterRepo,
 		cryptoSvc:       cryptoSvc,
+		settingSvc:      settingSvc,
 		wsHub:           wsHub,
 		notifDispatcher: notifDispatcher,
 	}
+}
+
+// resolveJobNamespace 返回构建 Job 运行的命名空间（复用系统设置的 helm_job_namespace）
+func (e *BuildExecutor) resolveJobNamespace() string {
+	if e.settingSvc != nil {
+		return e.settingSvc.GetHelmJobNamespace()
+	}
+	return "default"
 }
 
 // Execute 异步执行构建：创建 Kaniko Job 并监听日志
@@ -147,13 +159,18 @@ func (e *BuildExecutor) run(buildID uint) {
 	jobName := fmt.Sprintf("build-%d-%d", buildID, now.Unix())
 	_ = e.updateBuildFields(buildID, map[string]interface{}{"kaniko_job_name": jobName})
 
-	namespace := "default"
+	namespace := e.resolveJobNamespace()
 	ctx := context.Background()
 
-	secretName := fmt.Sprintf("build-%d-docker-cfg", buildID)
-	if err := e.ensureDockerConfigSecret(ctx, clientset, namespace, secretName, registry); err != nil {
-		e.failByID(buildID, fmt.Sprintf("创建镜像仓库凭证 Secret 失败: %v", err))
-		return
+	// ECR 通过 IRSA 认证，不需要 Docker config Secret
+	isECR := registry.Provider == "ecr" || strings.Contains(registry.URL, ".ecr.")
+	secretName := ""
+	if !isECR {
+		secretName = fmt.Sprintf("build-%d-docker-cfg", buildID)
+		if err := e.ensureDockerConfigSecret(ctx, clientset, namespace, secretName, registry); err != nil {
+			e.failByID(buildID, fmt.Sprintf("创建镜像仓库凭证 Secret 失败: %v", err))
+			return
+		}
 	}
 
 	// 优先从 build 自身读取 dockerfile_path，fallback 到 service
@@ -211,6 +228,28 @@ func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commi
 		args = append(args, fmt.Sprintf("--insecure-registry=%s", strings.TrimPrefix(registry.URL, "http://")))
 	}
 
+	container := corev1.Container{
+		Name:  "kaniko",
+		Image: "gcr.io/kaniko-project/executor:latest",
+		Args:  args,
+	}
+
+	var volumes []corev1.Volume
+	if dockerSecretName != "" {
+		container.VolumeMounts = []corev1.VolumeMount{
+			{Name: "docker-config", MountPath: "/kaniko/.docker"},
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "docker-config",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: dockerSecretName,
+					Items:      []corev1.KeyToPath{{Key: ".dockerconfigjson", Path: "config.json"}},
+				},
+			},
+		})
+	}
+
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -231,35 +270,11 @@ func (e *BuildExecutor) buildKanikoJob(jobName, namespace, gitURL, branch, commi
 						"managed-by": "deployhub",
 					},
 				},
-			Spec: corev1.PodSpec{
-				ServiceAccountName: serviceAccount,
-				RestartPolicy:      corev1.RestartPolicyNever,
-				Containers: []corev1.Container{
-						{
-							Name:  "kaniko",
-							Image: "gcr.io/kaniko-project/executor:latest",
-							Args:  args,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "docker-config",
-									MountPath: "/kaniko/.docker",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "docker-config",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: dockerSecretName,
-									Items: []corev1.KeyToPath{
-										{Key: ".dockerconfigjson", Path: "config.json"},
-									},
-								},
-							},
-						},
-					},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: serviceAccount,
+					RestartPolicy:      corev1.RestartPolicyNever,
+					Containers:         []corev1.Container{container},
+					Volumes:            volumes,
 				},
 			},
 		},
@@ -517,7 +532,7 @@ func (e *BuildExecutor) CancelJob(buildID uint) {
 	}
 
 	ctx := context.Background()
-	namespace := "default"
+	namespace := e.resolveJobNamespace()
 	propagation := metav1.DeletePropagationBackground
 	err = clientset.BatchV1().Jobs(namespace).Delete(ctx, build.KanikoJobName, metav1.DeleteOptions{
 		PropagationPolicy: &propagation,
