@@ -6,15 +6,15 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(200) UNIQUE NOT NULL,
-    password_hash VARCHAR(200) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),
     oauth_provider VARCHAR(20),
-    oauth_id VARCHAR(200),
-    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    oauth_id VARCHAR(100),
+    role VARCHAR(10) NOT NULL DEFAULT 'member',
     avatar VARCHAR(500) DEFAULT '',
     nickname VARCHAR(100) DEFAULT '',
-    phone_encrypted VARCHAR(500) DEFAULT '',
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    phone_encrypted TEXT DEFAULT '',
+    status VARCHAR(10) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS groups (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT DEFAULT '',
+    created_by INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -83,7 +84,9 @@ CREATE TABLE IF NOT EXISTS registries (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     url VARCHAR(500) NOT NULL,
+    provider VARCHAR(20) NOT NULL DEFAULT 'docker',
     auth_config_encrypted TEXT NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -131,7 +134,6 @@ CREATE TABLE IF NOT EXISTS services (
     default_mem_limit VARCHAR(20) DEFAULT '',
     default_command JSONB DEFAULT '[]',
     default_args JSONB DEFAULT '[]',
-    default_volume_claim_templates JSONB DEFAULT '[]',
     default_workload_type VARCHAR(20) DEFAULT 'deployment',
     default_liveness_probe JSONB DEFAULT '{}',
     default_readiness_probe JSONB DEFAULT '{}',
@@ -201,6 +203,7 @@ CREATE TABLE IF NOT EXISTS deployments (
     deploy_command TEXT DEFAULT '',
     pod_status VARCHAR(20) DEFAULT '',
     pod_message TEXT DEFAULT '',
+    health_check_path VARCHAR(200) DEFAULT '',
     started_at TIMESTAMP,
     finished_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -209,11 +212,12 @@ CREATE TABLE IF NOT EXISTS deployments (
 CREATE TABLE IF NOT EXISTS approvals (
     id SERIAL PRIMARY KEY,
     deployment_id INTEGER NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+    requester_id INTEGER NOT NULL REFERENCES users(id),
     approver_id INTEGER NOT NULL REFERENCES users(id),
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    status VARCHAR(10) NOT NULL DEFAULT 'pending',
     comment TEXT DEFAULT '',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    decided_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==================== 配置中心 ====================
@@ -272,8 +276,8 @@ CREATE TABLE IF NOT EXISTS config_templates (
     id SERIAL PRIMARY KEY,
     service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
+    config_type VARCHAR(10) NOT NULL DEFAULT 'configmap',
     template_content TEXT NOT NULL DEFAULT '',
-    format VARCHAR(20) NOT NULL DEFAULT 'yaml',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(service_id, name)
@@ -281,17 +285,17 @@ CREATE TABLE IF NOT EXISTS config_templates (
 
 CREATE TABLE IF NOT EXISTS config_env_values (
     id SERIAL PRIMARY KEY,
-    template_id INTEGER NOT NULL REFERENCES config_templates(id) ON DELETE CASCADE,
+    config_template_id INTEGER NOT NULL REFERENCES config_templates(id) ON DELETE CASCADE,
     cluster_id INTEGER NOT NULL,
-    variables JSONB DEFAULT '{}',
+    values_encrypted TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(template_id, cluster_id)
+    UNIQUE(config_template_id, cluster_id)
 );
 
 CREATE TABLE IF NOT EXISTS config_versions (
     id SERIAL PRIMARY KEY,
-    template_id INTEGER NOT NULL REFERENCES config_templates(id) ON DELETE CASCADE,
+    config_template_id INTEGER NOT NULL REFERENCES config_templates(id) ON DELETE CASCADE,
     cluster_id INTEGER NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
     rendered_content TEXT NOT NULL DEFAULT '',
@@ -301,11 +305,13 @@ CREATE TABLE IF NOT EXISTS config_versions (
 
 CREATE TABLE IF NOT EXISTS config_deployments (
     id SERIAL PRIMARY KEY,
-    version_id INTEGER NOT NULL REFERENCES config_versions(id),
+    config_version_id INTEGER NOT NULL REFERENCES config_versions(id),
     cluster_id INTEGER NOT NULL,
     namespace VARCHAR(100) NOT NULL DEFAULT 'default',
-    resource_type VARCHAR(20) NOT NULL DEFAULT 'configmap',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    resource_name VARCHAR(200) NOT NULL DEFAULT '',
+    status VARCHAR(10) NOT NULL DEFAULT 'pending',
+    deployed_by_id INTEGER NOT NULL DEFAULT 0,
+    deployed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -317,6 +323,7 @@ CREATE TABLE IF NOT EXISTS helm_values (
     cluster_id INTEGER NOT NULL,
     content TEXT NOT NULL DEFAULT '',
     version INTEGER NOT NULL DEFAULT 1,
+    updated_by INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(service_id, cluster_id)
@@ -327,10 +334,12 @@ CREATE TABLE IF NOT EXISTS helm_values (
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
+    type VARCHAR(30) NOT NULL DEFAULT 'deployment',
     title VARCHAR(200) NOT NULL,
     content TEXT DEFAULT '',
-    type VARCHAR(20) NOT NULL DEFAULT 'deployment',
     is_read BOOLEAN NOT NULL DEFAULT false,
+    reference_type VARCHAR(30) DEFAULT '',
+    reference_id INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
