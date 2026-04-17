@@ -8,9 +8,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o deployhub ./cmd/server
 
 # Stage 2: 运行阶段
 FROM alpine:3.19
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata python3 py3-pip \
+    && pip3 install --no-cache-dir --break-system-packages awscli \
+    && apk del py3-pip
 WORKDIR /app
 COPY --from=builder /app/deployhub .
-COPY --from=builder /app/migrations ./migrations
 EXPOSE 8080
 CMD ["./deployhub"]
