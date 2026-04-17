@@ -7,10 +7,12 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o deployhub ./cmd/server
 
 # Stage 2: 运行阶段
+FROM amazon/aws-cli:latest AS awscli
+
 FROM alpine:3.19
-RUN apk --no-cache add ca-certificates tzdata python3 py3-pip \
-    && pip3 install --no-cache-dir --break-system-packages awscli \
-    && apk del py3-pip
+RUN apk --no-cache add ca-certificates tzdata gcompat
+COPY --from=awscli /usr/local/aws-cli/ /usr/local/aws-cli/
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
 WORKDIR /app
 COPY --from=builder /app/deployhub .
 EXPOSE 8080

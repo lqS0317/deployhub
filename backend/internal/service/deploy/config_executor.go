@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
+	"time"
 
 	"deployhub/internal/model"
 	"deployhub/internal/service/cluster"
@@ -172,8 +174,13 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 	}
 
 	podTemplate := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{Labels: labels},
-		Spec:       podSpec,
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: labels,
+			Annotations: map[string]string{
+				"deployhub.io/deploy-timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+			},
+		},
+		Spec: podSpec,
 	}
 
 	var parts []string
