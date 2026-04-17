@@ -81,7 +81,6 @@ export function TriggerBuildDialog({ defaultServiceId, onClose }: TriggerBuildDi
     if (!branch) newErrors.branch = "请选择分支";
     if (!buildClusterId) newErrors.buildClusterId = "请选择构建集群";
     if (!registryId) newErrors.registryId = "请选择镜像仓库";
-    if (!imageRepo.trim()) newErrors.imageRepo = "请输入镜像路径";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -203,13 +202,11 @@ export function TriggerBuildDialog({ defaultServiceId, onClose }: TriggerBuildDi
                 {errors.registryId && <p className="mt-1 text-xs text-red-500">{errors.registryId}</p>}
               </div>
               <div>
-                <label className="mb-1 block text-xs text-gray-600">
-                  镜像路径 <span className="text-red-500">*</span>
-                </label>
+                <label className="mb-1 block text-xs text-gray-600">镜像路径</label>
                 <input type="text" value={imageRepo} onChange={(e) => setImageRepo(e.target.value)}
-                  placeholder="lq0317/myapp"
-                  className={`w-full rounded border px-2 py-1.5 text-sm ${errors.imageRepo ? "border-red-300" : "border-gray-300"} focus:border-blue-500 focus:outline-none`} />
-                {errors.imageRepo && <p className="mt-1 text-xs text-red-500">{errors.imageRepo}</p>}
+                  placeholder="留空则用服务名称"
+                  className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                <p className="mt-1 text-xs text-gray-400">ECR 留空自动用 registry/服务名称</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-600">Dockerfile 路径</label>
