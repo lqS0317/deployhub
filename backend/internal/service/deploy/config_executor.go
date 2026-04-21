@@ -61,14 +61,19 @@ func (e *ConfigExecutor) DryRun(deployment *model.Deployment, service *model.Ser
 // --- YAML 生成 ---
 
 func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service) (string, error) {
-	imageRepo := resolveImageRepo(dep, svc)
-	imageTag := dep.ImageTag
-	if imageTag == "" {
-		imageTag = "latest"
-	}
-	fullImage := imageTag
-	if imageRepo != "" && !strings.Contains(imageTag, "/") {
-		fullImage = imageRepo + ":" + imageTag
+	var fullImage string
+	if dep.ExternalImage != "" {
+		fullImage = dep.ExternalImage
+	} else {
+		imageRepo := resolveImageRepo(dep, svc)
+		imageTag := dep.ImageTag
+		if imageTag == "" {
+			imageTag = "latest"
+		}
+		fullImage = imageTag
+		if imageRepo != "" && !strings.Contains(imageTag, "/") {
+			fullImage = imageRepo + ":" + imageTag
+		}
 	}
 
 	port := resolvePort(dep, svc)
