@@ -98,6 +98,7 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 	var envFromSources []corev1.EnvFromSource
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
+	var pvcInfos []PVCInfo
 
 	// 从配置中心生成配置资源
 	var serviceAccountName string
@@ -110,6 +111,7 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 				configYAMLParts = append(configYAMLParts, configResult.YAML)
 			}
 			serviceAccountName = configResult.ServiceAccountName
+			pvcInfos = configResult.PVCs
 
 			for _, mi := range configResult.Mounts {
 				switch mi.ConfigType {
@@ -129,7 +131,11 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 							},
 						},
 					})
-					volumeMounts = append(volumeMounts, corev1.VolumeMount{Name: volName, MountPath: mi.MountPath, ReadOnly: true})
+					vm := corev1.VolumeMount{Name: volName, MountPath: mi.MountPath}
+					if mi.SubPath != "" {
+						vm.SubPath = mi.SubPath
+					}
+					volumeMounts = append(volumeMounts, vm)
 				case "secret":
 					volName := "sec-" + mi.EntryName
 					volumes = append(volumes, corev1.Volume{
@@ -138,7 +144,11 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 							Secret: &corev1.SecretVolumeSource{SecretName: mi.K8sName},
 						},
 					})
-					volumeMounts = append(volumeMounts, corev1.VolumeMount{Name: volName, MountPath: mi.MountPath, ReadOnly: true})
+					vm := corev1.VolumeMount{Name: volName, MountPath: mi.MountPath}
+					if mi.SubPath != "" {
+						vm.SubPath = mi.SubPath
+					}
+					volumeMounts = append(volumeMounts, vm)
 				}
 			}
 		}
@@ -170,6 +180,16 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 	if memLim == "" { memLim = svc.MemLimit }
 	container.Resources = buildResources(cpuReq, memReq, cpuLim, memLim)
 
+	// PVC volumeMounts
+	for _, pvc := range pvcInfos {
+		if pvc.MountPath != "" {
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      pvc.Name,
+				MountPath: pvc.MountPath,
+			})
+		}
+	}
+
 	podSpec := corev1.PodSpec{
 		Containers: []corev1.Container{container},
 		Volumes:    volumes,
@@ -195,15 +215,43 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 	wt := resolveWorkloadType(dep, svc)
 
 	if wt == "statefulset" {
+		stsSpec := appsv1.StatefulSetSpec{
+			Replicas:    &replicas,
+			ServiceName: name,
+			Selector:    &metav1.LabelSelector{MatchLabels: labels},
+			Template:    podTemplate,
+		}
+
+		// PVC volumeClaimTemplates
+		for _, pvc := range pvcInfos {
+			accessMode := corev1.ReadWriteOnce
+			switch pvc.AccessMode {
+			case "ReadWriteMany":
+				accessMode = corev1.ReadWriteMany
+			case "ReadOnlyMany":
+				accessMode = corev1.ReadOnlyMany
+			}
+			pvcTemplate := corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvc.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{accessMode},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse(pvc.Storage),
+						},
+					},
+				},
+			}
+			if pvc.StorageClassName != "" {
+				pvcTemplate.Spec.StorageClassName = &pvc.StorageClassName
+			}
+			stsSpec.VolumeClaimTemplates = append(stsSpec.VolumeClaimTemplates, pvcTemplate)
+		}
+
 		sts := &appsv1.StatefulSet{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "apps/v1", Kind: "StatefulSet"},
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: dep.Namespace, Labels: labels},
-			Spec: appsv1.StatefulSetSpec{
-				Replicas:    &replicas,
-				ServiceName: name,
-				Selector:    &metav1.LabelSelector{MatchLabels: labels},
-				Template:    podTemplate,
-			},
+			Spec:       stsSpec,
 		}
 		y, _ := yaml.Marshal(sts)
 		parts = append(parts, string(y))

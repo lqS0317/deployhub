@@ -33,8 +33,10 @@ export function CreateEntryDialog({
         cluster_id: clusterId,
         name: name.trim(),
         config_type: configType,
-        format: configType === "env" ? "properties" : format,
-        mount_path: configType !== "env" ? (mountPath || `/etc/config/${name.trim()}`) : "",
+        format: configType === "env" || configType === "pvc" ? "properties" : format,
+        mount_path: configType === "env" || configType === "serviceaccount" ? ""
+          : configType === "pvc" ? (mountPath || `/data/${name.trim()}`)
+          : (mountPath || `/etc/config/${name.trim()}`),
       },
       {
         onSuccess: () => {
@@ -85,7 +87,7 @@ export function CreateEntryDialog({
               value={configType}
               onChange={(e) => {
                 setConfigType(e.target.value);
-                if (e.target.value === "env" || e.target.value === "serviceaccount") setFormat("properties");
+                if (e.target.value === "env" || e.target.value === "serviceaccount" || e.target.value === "pvc") setFormat("properties");
               }}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
@@ -93,6 +95,7 @@ export function CreateEntryDialog({
               <option value="configmap">ConfigMap</option>
               <option value="secret">Secret</option>
               <option value="serviceaccount">ServiceAccount</option>
+              <option value="pvc">PVC（持久化卷）</option>
             </select>
           </div>
 
@@ -101,18 +104,20 @@ export function CreateEntryDialog({
               格式
             </label>
             <select
-              value={configType === "env" || configType === "serviceaccount" ? "properties" : format}
+              value={configType === "env" || configType === "serviceaccount" || configType === "pvc" ? "properties" : format}
               onChange={(e) => setFormat(e.target.value)}
-              disabled={configType === "env" || configType === "serviceaccount"}
+              disabled={configType === "env" || configType === "serviceaccount" || configType === "pvc"}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
             >
               <option value="properties">Properties (KV)</option>
               <option value="yaml">YAML</option>
               <option value="json">JSON</option>
             </select>
-            {(configType === "env" || configType === "serviceaccount") && (
+            {(configType === "env" || configType === "serviceaccount" || configType === "pvc") && (
               <p className="mt-1 text-xs text-gray-400">
-                {configType === "serviceaccount" ? "SA 类型固定 Properties 格式（Key=注解名, Value=注解值）" : "Env 类型固定使用 Properties 格式"}
+                {configType === "serviceaccount" ? "SA 类型固定 Properties 格式（Key=注解名, Value=注解值）"
+                  : configType === "pvc" ? "PVC 类型使用 KV 格式：storage / storageClassName / accessMode"
+                  : "Env 类型固定使用 Properties 格式"}
               </p>
             )}
           </div>
@@ -122,9 +127,11 @@ export function CreateEntryDialog({
               <label className="mb-1 block text-sm font-medium text-gray-700">挂载路径</label>
               <input type="text" value={mountPath}
                 onChange={(e) => setMountPath(e.target.value)}
-                placeholder={`/etc/config/${name.trim() || "entry-name"}`}
+                placeholder={configType === "pvc" ? `/data/${name.trim() || "volume"}` : `/etc/config/${name.trim() || "entry-name"}`}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-              <p className="mt-1 text-xs text-gray-400">留空默认 /etc/config/{"{名称}"}</p>
+              <p className="mt-1 text-xs text-gray-400">
+                {configType === "pvc" ? "PVC 挂载目录，如 /data" : `留空默认 /etc/config/${"{名称}"}`}
+              </p>
             </div>
           )}
 

@@ -48,7 +48,7 @@ type PublishedConfig struct {
 // CreateEntry 创建配置条目
 func (s *ConfigService) CreateEntry(serviceID, clusterID uint, name, configType, format, mountPath string) (*model.ConfigEntry, error) {
 	if !isValidConfigType(configType) {
-		return nil, fmt.Errorf("不支持的配置类型: %s（仅支持 env/configmap/secret/serviceaccount）", configType)
+		return nil, fmt.Errorf("不支持的配置类型: %s（仅支持 env/configmap/secret/serviceaccount/pvc）", configType)
 	}
 	if !isValidFormat(format) {
 		return nil, fmt.Errorf("不支持的格式: %s（仅支持 properties/yaml/json）", format)
@@ -460,5 +460,5 @@ func isValidFormat(f string) bool {
 }
 
 func isValidConfigType(t string) bool {
-	return t == model.ConfigTypeEnv || t == model.ConfigTypeConfigMap || t == model.ConfigTypeSecret || t == model.ConfigTypeServiceAccount
+	return t == model.ConfigTypeEnv || t == model.ConfigTypeConfigMap || t == model.ConfigTypeSecret || t == model.ConfigTypeServiceAccount || t == model.ConfigTypePVC
 }

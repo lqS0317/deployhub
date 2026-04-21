@@ -3,6 +3,7 @@ package deploy
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"deployhub/internal/model"
@@ -17,9 +18,19 @@ import (
 // ConfigMountInfo 描述单个配置条目在容器中的挂载信息
 type ConfigMountInfo struct {
 	EntryName  string // 配置条目名称
-	ConfigType string // env, configmap, secret, serviceaccount
+	ConfigType string // env, configmap, secret, serviceaccount, pvc
 	K8sName    string // K8s 资源名称: {svc}-{entry_name}
-	MountPath  string // 挂载路径（configmap/secret 用，env/sa 为空）
+	MountPath  string // 挂载路径（configmap/secret/pvc 用，env/sa 为空）
+	SubPath    string // subPath 文件名（文件挂载时使用）
+}
+
+// PVCInfo 描述 PVC 挂载信息（配置中心 pvc 条目的 KV 解析结果）
+type PVCInfo struct {
+	Name             string // PVC 名称（条目名）
+	MountPath        string // 挂载路径
+	Storage          string // 存储大小，如 10Gi
+	StorageClassName string // StorageClass 名称
+	AccessMode       string // 访问模式，如 ReadWriteOnce
 }
 
 // ConfigDeployResult 部署配置生成结果
@@ -27,6 +38,7 @@ type ConfigDeployResult struct {
 	YAML               string            // ConfigMap/Secret/SA 资源 YAML
 	Mounts             []ConfigMountInfo // 挂载信息
 	ServiceAccountName string            // 如果有 SA 类型条目，返回 SA 名称
+	PVCs               []PVCInfo         // PVC 挂载信息（StatefulSet 用）
 }
 
 // ConfigDeployHelper 从配置中心读取已发布配置，生成 K8s ConfigMap/Secret YAML
@@ -76,7 +88,11 @@ func (h *ConfigDeployHelper) GenerateConfigResources(serviceID, clusterID uint, 
 			parts = append(parts, cmYAML)
 
 		case model.ConfigTypeConfigMap:
-			cmYAML, err := h.buildConfigMap(k8sName, json.RawMessage(release.Snapshot))
+			fileName := ""
+			if base := filepath.Base(entry.MountPath); strings.Contains(base, ".") {
+				fileName = base
+			}
+			cmYAML, err := h.buildConfigMapWithFile(k8sName, json.RawMessage(release.Snapshot), fileName)
 			if err != nil {
 				return nil, fmt.Errorf("生成 ConfigMap 失败: %w", err)
 			}
@@ -97,6 +113,29 @@ func (h *ConfigDeployHelper) GenerateConfigResources(serviceID, clusterID uint, 
 			}
 			parts = append(parts, saYAML)
 			result.ServiceAccountName = saName
+
+		case model.ConfigTypePVC:
+			pvcData, err := h.parseSnapshotData(json.RawMessage(release.Snapshot), false)
+			if err != nil {
+				return nil, fmt.Errorf("解析 PVC 配置失败: %w", err)
+			}
+			pvcName := entry.Name
+			storage := pvcData["storage"]
+			if storage == "" {
+				storage = "10Gi"
+			}
+			storageClass := pvcData["storageClassName"]
+			accessMode := pvcData["accessMode"]
+			if accessMode == "" {
+				accessMode = "ReadWriteOnce"
+			}
+			result.PVCs = append(result.PVCs, PVCInfo{
+				Name:             pvcName,
+				MountPath:        entry.MountPath,
+				Storage:          storage,
+				StorageClassName: storageClass,
+				AccessMode:       accessMode,
+			})
 		}
 
 		// 挂载路径
@@ -105,11 +144,16 @@ func (h *ConfigDeployHelper) GenerateConfigResources(serviceID, clusterID uint, 
 			mountPath = fmt.Sprintf("/etc/config/%s", entry.Name)
 		}
 
+		subPath := ""
+		if base := filepath.Base(mountPath); strings.Contains(base, ".") {
+			subPath = base
+		}
 		result.Mounts = append(result.Mounts, ConfigMountInfo{
 			EntryName:  entry.Name,
 			ConfigType: entry.ConfigType,
 			K8sName:    k8sName,
 			MountPath:  mountPath,
+			SubPath:    subPath,
 		})
 	}
 
@@ -137,9 +181,23 @@ func (h *ConfigDeployHelper) buildServiceAccount(name string, snapshot json.RawM
 
 // buildConfigMap 从快照生成 ConfigMap YAML
 func (h *ConfigDeployHelper) buildConfigMap(name string, snapshot json.RawMessage) (string, error) {
+	return h.buildConfigMapWithFile(name, snapshot, "")
+}
+
+// buildConfigMapWithFile 从快照生成 ConfigMap YAML；fileName 非空时将 KV 合并为单个文件
+func (h *ConfigDeployHelper) buildConfigMapWithFile(name string, snapshot json.RawMessage, fileName string) (string, error) {
 	data, err := h.parseSnapshotData(snapshot, false)
 	if err != nil {
 		return "", err
+	}
+
+	// 文件挂载：将所有 KV 渲染为 KEY=VALUE 格式写入单个 key
+	if fileName != "" {
+		var lines []string
+		for k, v := range data {
+			lines = append(lines, fmt.Sprintf("%s=%s", k, v))
+		}
+		data = map[string]string{fileName: strings.Join(lines, "\n")}
 	}
 
 	cm := &corev1.ConfigMap{

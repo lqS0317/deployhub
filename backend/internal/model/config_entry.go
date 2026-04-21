@@ -8,6 +8,7 @@ const (
 	ConfigTypeConfigMap      = "configmap"
 	ConfigTypeSecret         = "secret"
 	ConfigTypeServiceAccount = "serviceaccount"
+	ConfigTypePVC            = "pvc"
 )
 
 // 配置集格式常量
