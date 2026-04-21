@@ -131,6 +131,31 @@ func (w *RolloutWatcher) watchRollout(deployment *model.Deployment, service *mod
 			w.broadcastProgress(room, deployment.ID, model.DeployStatusDeploying, desired, ready,
 				fmt.Sprintf("%s 更新中: %d/%d 就绪, %d 已更新", workloadLabel, ready, desired, updated))
 
+			// 检测 Pod 级别异常（CrashLoopBackOff、ImagePullBackOff 等）
+			labelSelector := podLabelSelector(deployment, service)
+			if labelSelector != "" {
+				pods, podErr := cs.CoreV1().Pods(deployment.Namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: labelSelector,
+				})
+				if podErr == nil {
+					for _, pod := range pods.Items {
+						for _, cStatus := range pod.Status.ContainerStatuses {
+							if cStatus.State.Waiting != nil && waitingFailReasons[cStatus.State.Waiting.Reason] {
+								msg := fmt.Sprintf("Pod %s 容器 %s 启动失败: %s — %s",
+									pod.Name, cStatus.Name, cStatus.State.Waiting.Reason, cStatus.State.Waiting.Message)
+								logTail := getPodLogTailFromClientset(ctx, cs, pod.Name, deployment.Namespace, cStatus.Name)
+								if logTail != "" {
+									msg += "\n--- 最近日志 ---\n" + logTail
+								}
+								w.markFailed(deployment.ID, msg)
+								w.broadcastProgress(room, deployment.ID, model.DeployStatusFailed, desired, ready, msg)
+								return
+							}
+						}
+					}
+				}
+			}
+
 			if desired > 0 && ready >= desired && updated >= desired {
 				// 滚动更新完成，进入 Pod 健康检查阶段
 				w.markPodChecking(deployment.ID)
