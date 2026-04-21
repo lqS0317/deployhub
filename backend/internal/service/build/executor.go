@@ -148,14 +148,17 @@ func (e *BuildExecutor) run(buildID uint) {
 		imageRepo = svc.ImageRepo
 	}
 
-	// ECR 场景：未配置 imageRepo 时，默认用 {registry_host}/{service_name}
 	isECRRegistry := registry.Provider == "ecr" || strings.Contains(registry.URL, ".ecr.")
+	isDockerHub := registry.Provider == "docker" || registry.Provider == "dockerhub" ||
+		strings.Contains(registry.URL, "docker.io") || strings.Contains(registry.URL, "hub.docker.com")
+
+	// ECR 场景：未配置 imageRepo 时，默认用 {registry_host}/{service_name}
 	if imageRepo == "" && isECRRegistry {
 		imageRepo = registryHost + "/" + svc.Name
 	}
 
-	// 非 ECR 或手动填了短路径时，自动补全域名前缀
-	if imageRepo != "" && !strings.Contains(imageRepo, ".") {
+	// Docker Hub 不需要域名前缀；其他私有 registry 需要补全域名
+	if imageRepo != "" && !isDockerHub && !strings.Contains(imageRepo, ".") {
 		imageRepo = registryHost + "/" + imageRepo
 	}
 
