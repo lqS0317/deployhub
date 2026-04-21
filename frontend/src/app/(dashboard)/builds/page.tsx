@@ -156,8 +156,8 @@ export default function BuildsPage() {
                   <td className="hidden whitespace-nowrap px-4 py-3 font-mono text-sm text-gray-600 lg:table-cell">
                     {b.git_commit ? b.git_commit.slice(0, 7) : "-"}
                   </td>
-                  <td className="max-w-[200px] truncate px-4 py-3 font-mono text-sm text-gray-600" title={b.image_tag || ""}>
-                    {b.image_tag || "-"}
+                  <td className="max-w-[200px] truncate px-4 py-3 font-mono text-sm text-gray-600" title={b.image_tag?.includes("/") ? b.image_tag : b.image_repo ? `${b.image_repo}:${b.image_tag}` : b.image_tag || ""}>
+                    {b.image_tag?.includes("/") ? b.image_tag : b.image_repo ? `${b.image_repo}:${b.image_tag}` : b.image_tag || "-"}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span
