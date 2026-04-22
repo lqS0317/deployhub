@@ -163,6 +163,30 @@ type ApisixPlugin struct {
 	Config map[string]interface{} `json:"config,omitempty"`
 }
 
+// ApisixUpstreamConfig APISIX Upstream 配置（用于 gRPC 等场景）
+type ApisixUpstreamConfig struct {
+	Scheme        string                    `json:"scheme,omitempty"`
+	LoadBalancer  *ApisixLoadBalancer       `json:"loadbalancer,omitempty"`
+	Retries       int                       `json:"retries,omitempty"`
+	Timeout       *ApisixTimeout            `json:"timeout,omitempty"`
+	HealthCheck   map[string]interface{}    `json:"healthCheck,omitempty"`
+	PortLevelSettings []ApisixPortLevel     `json:"portLevelSettings,omitempty"`
+	Annotations   map[string]string         `json:"annotations,omitempty"`
+}
+
+// ApisixLoadBalancer 负载均衡配置
+type ApisixLoadBalancer struct {
+	Type     string `json:"type"`
+	HashOn   string `json:"hashOn,omitempty"`
+	Key      string `json:"key,omitempty"`
+}
+
+// ApisixPortLevel 端口级别配置（不同端口可以用不同 scheme）
+type ApisixPortLevel struct {
+	Port   int    `json:"port"`
+	Scheme string `json:"scheme"`
+}
+
 // BuildYAML 根据资源类型分发到对应的 YAML 构建函数
 func BuildYAML(name, namespace, resourceType string, config datatypes.JSON) (string, error) {
 	switch resourceType {
@@ -174,6 +198,8 @@ func BuildYAML(name, namespace, resourceType string, config datatypes.JSON) (str
 		return buildIngressRouteYAML(name, namespace, config)
 	case "apisixroute":
 		return buildApisixRouteYAML(name, namespace, config)
+	case "apisixupstream":
+		return buildApisixUpstreamYAML(name, namespace, config)
 	default:
 		return "", fmt.Errorf("不支持的资源类型: %s", resourceType)
 	}
@@ -539,6 +565,85 @@ func buildApisixRouteYAML(name, namespace string, config datatypes.JSON) (string
 	out, err := yaml.Marshal(obj.Object)
 	if err != nil {
 		return "", fmt.Errorf("序列化 ApisixRoute YAML 失败: %w", err)
+	}
+	return string(out), nil
+}
+
+// buildApisixUpstreamYAML 构建 APISIX Upstream YAML（CRD，用于 gRPC 等场景）
+func buildApisixUpstreamYAML(name, namespace string, config datatypes.JSON) (string, error) {
+	var cfg ApisixUpstreamConfig
+	if err := json.Unmarshal(config, &cfg); err != nil {
+		return "", fmt.Errorf("解析 ApisixUpstream 配置失败: %w", err)
+	}
+
+	spec := map[string]interface{}{}
+
+	if cfg.Scheme != "" {
+		spec["scheme"] = cfg.Scheme
+	}
+	if cfg.LoadBalancer != nil {
+		lb := map[string]interface{}{"type": cfg.LoadBalancer.Type}
+		if cfg.LoadBalancer.HashOn != "" {
+			lb["hashOn"] = cfg.LoadBalancer.HashOn
+		}
+		if cfg.LoadBalancer.Key != "" {
+			lb["key"] = cfg.LoadBalancer.Key
+		}
+		spec["loadbalancer"] = lb
+	}
+	if cfg.Retries > 0 {
+		spec["retries"] = int64(cfg.Retries)
+	}
+	if cfg.Timeout != nil {
+		tm := map[string]interface{}{}
+		if cfg.Timeout.Connect != "" {
+			tm["connect"] = cfg.Timeout.Connect
+		}
+		if cfg.Timeout.Read != "" {
+			tm["read"] = cfg.Timeout.Read
+		}
+		if cfg.Timeout.Send != "" {
+			tm["send"] = cfg.Timeout.Send
+		}
+		if len(tm) > 0 {
+			spec["timeout"] = tm
+		}
+	}
+	if cfg.HealthCheck != nil {
+		spec["healthCheck"] = cfg.HealthCheck
+	}
+	if len(cfg.PortLevelSettings) > 0 {
+		var pls []interface{}
+		for _, p := range cfg.PortLevelSettings {
+			plMap := map[string]interface{}{
+				"port":   int64(p.Port),
+				"scheme": p.Scheme,
+			}
+			pls = append(pls, plMap)
+		}
+		spec["portLevelSettings"] = pls
+	}
+
+	metadata := map[string]interface{}{
+		"name":      name,
+		"namespace": namespace,
+	}
+	if len(cfg.Annotations) > 0 {
+		metadata["annotations"] = toStringInterfaceMap(cfg.Annotations)
+	}
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apisix.apache.org/v2",
+			"kind":       "ApisixUpstream",
+			"metadata":   metadata,
+			"spec":       spec,
+		},
+	}
+
+	out, err := yaml.Marshal(obj.Object)
+	if err != nil {
+		return "", fmt.Errorf("序列化 ApisixUpstream YAML 失败: %w", err)
 	}
 	return string(out), nil
 }

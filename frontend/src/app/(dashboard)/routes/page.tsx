@@ -16,6 +16,7 @@ const TABS = [
   { key: "ingress", label: "Ingress" },
   { key: "ingressroute", label: "IngressRoute" },
   { key: "apisixroute", label: "ApisixRoute" },
+  { key: "apisixupstream", label: "ApisixUpstream" },
 ] as const;
 
 function DeployBadge({ entryId }: { entryId: number }) {

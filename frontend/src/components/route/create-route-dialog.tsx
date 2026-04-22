@@ -10,6 +10,7 @@ import { ServiceForm } from "./service-form";
 import { IngressForm } from "./ingress-form";
 import { IngressRouteForm } from "./ingressroute-form";
 import { ApisixRouteForm } from "./apisixroute-form";
+import { ApisixUpstreamForm } from "./apisixupstream-form";
 import type { RouteEntry } from "@/types";
 
 interface CreateRouteDialogProps {
@@ -28,6 +29,7 @@ const EMPTY_CONFIGS: Record<string, unknown> = {
     tls: {},
   },
   apisixroute: { rules: [] },
+  apisixupstream: { scheme: "grpc" },
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -35,6 +37,7 @@ const TYPE_LABELS: Record<string, string> = {
   ingress: "Ingress",
   ingressroute: "IngressRoute",
   apisixroute: "ApisixRoute",
+  apisixupstream: "ApisixUpstream",
 };
 
 export function CreateRouteDialog({
@@ -131,6 +134,9 @@ export function CreateRouteDialog({
             )}
             {resourceType === "apisixroute" && (
               <ApisixRouteForm key={`${editEntry?.id}-${editEntry?.updated_at}`} value={config} onChange={setConfig} />
+            )}
+            {resourceType === "apisixupstream" && (
+              <ApisixUpstreamForm key={`${editEntry?.id}-${editEntry?.updated_at}`} value={config} onChange={setConfig} />
             )}
           </div>
 
