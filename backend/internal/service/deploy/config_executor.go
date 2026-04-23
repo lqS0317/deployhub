@@ -66,6 +66,10 @@ func (e *ConfigExecutor) generateYAML(dep *model.Deployment, svc *model.Service)
 		fullImage = dep.ExternalImage
 	} else {
 		imageRepo := resolveImageRepo(dep, svc)
+		// 兜底：imageRepo 为空或以 / 结尾（路径部分为空）时用服务名补齐
+		if imageRepo == "" || strings.HasSuffix(imageRepo, "/") {
+			imageRepo = imageRepo + svc.Name
+		}
 		imageTag := dep.ImageTag
 		if imageTag == "" {
 			imageTag = "latest"
