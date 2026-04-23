@@ -174,7 +174,11 @@ func (e *BuildExecutor) run(buildID uint) {
 	}
 
 	jobName := fmt.Sprintf("build-%d-%d", buildID, now.Unix())
-	_ = e.updateBuildFields(buildID, map[string]interface{}{"kaniko_job_name": jobName})
+	// 将拼接后的完整 imageRepo 持久化回 Build 记录，供下游部署复用
+	_ = e.updateBuildFields(buildID, map[string]interface{}{
+		"kaniko_job_name": jobName,
+		"image_repo":      imageRepo,
+	})
 
 	namespace := e.resolveJobNamespace()
 	ctx := context.Background()
