@@ -76,9 +76,13 @@ make test
 
 ### 系统设置
 - `GET/POST /api/v1/clusters` — 集群管理
+- `GET/POST/DELETE /api/v1/clusters/:id/namespaces[/:ns_id]` — 集群可发布 namespace 映射（admin 写）
+- `POST /api/v1/clusters/:id/namespaces/sync` — 从集群拉取实际 namespace 同步登记（admin）
 - `GET/POST /api/v1/git-repos` — Git 仓库
 - `GET/POST /api/v1/registries` — 镜像仓库
 - `GET/PUT /api/v1/system-settings[/:key]` — 系统配置
+
+> 创建/回滚部署时，后端会强制校验请求中的 `namespace` 是否登记在 `cluster_namespaces(cluster_id, namespace)` 中。未登记将返回 400，杜绝脚本/旧客户端绕过前端下拉直接发到任意 namespace。
 
 ## 目录结构
 

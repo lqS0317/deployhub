@@ -101,3 +101,4 @@ frontend/src/
 - **实时预览**：部署对话框展示已发布配置条目、YAML 预览
 - **WebSocket 集成**：构建日志、部署进度、Pod 日志均通过 WS 实时推送
 - **响应式布局**：配置中心左右分栏、路由中心 Tab 切换
+- **Namespace 强制下拉**：发布弹窗 namespace 字段为下拉框，数据源 `GET /clusters/:id/namespaces`（hook：`use-namespaces.ts`），与「集群管理 → 命名空间映射」共用同一缓存（`queryKey: ["cluster-namespaces", clusterId]`），新增/删除映射后弹窗自动刷新

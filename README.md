@@ -8,7 +8,7 @@
 |------|------|
 | **服务管理** | 服务 CRUD、成员权限、运行时参数（端口/副本/资源/探针/启动命令） |
 | **构建中心** | Kaniko 集群内构建、Git 分支+Commit 选择、实时日志流 |
-| **发布管理** | Direct 配置部署 / YAML 部署 / Helm 部署、审批流程、滚动更新、回滚、Pod 健康检查 |
+| **发布管理** | Direct 配置部署 / YAML 部署 / Helm 部署、Namespace 强制映射选择、审批流程、滚动更新、回滚、Pod 健康检查 |
 | **配置中心** | 多配置条目（env/configmap/secret/serviceaccount）、发布/回滚版本化、部署时自动匹配注入 |
 | **路由中心** | K8s Service / Ingress / Traefik IngressRoute / APISIX ApisixRoute 结构化管理与部署 |
 | **插件中心** | Traefik Middleware / APISIX Plugin 等 CRD 资源 YAML 管理与部署 |
@@ -80,6 +80,7 @@ pnpm start
 2. 手动将用户 role 更新为 admin：`UPDATE users SET role='admin' WHERE id=1;`
 3. 在系统设置中添加：
    - **集群**：填入 kubeconfig（用于构建和部署）
+   - **集群 → 命名空间映射**：每个集群点击「命名空间映射」，登记本集群允许发布的 namespace（必填项；发布弹窗只允许选择此处登记过的 namespace）
    - **Git 仓库**：GitHub/GitLab 仓库 + Token
    - **镜像仓库**：Docker Hub / ECR / ACR 等
 4. 在系统配置中设置：
