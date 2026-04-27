@@ -137,8 +137,8 @@ export default function DeploymentsPage() {
                   <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
                     {d.service?.name || String(d.service_id)}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-gray-600">
-                    {d.image_tag || "-"}
+                  <td className="max-w-[300px] truncate whitespace-nowrap px-6 py-4 font-mono text-sm text-gray-600" title={d.external_image || d.image_tag || ""}>
+                    {d.external_image || d.image_tag || "-"}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                     {d.cluster?.display_name || d.cluster?.name || "-"}

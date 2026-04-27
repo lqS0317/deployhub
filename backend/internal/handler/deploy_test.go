@@ -109,6 +109,20 @@ func (m *mockDeployRepoForHandler) Delete(id uint) error {
 	return nil
 }
 
+func (m *mockDeployRepoForHandler) FindByStatuses(statuses []string) ([]model.Deployment, error) {
+	allow := make(map[string]bool, len(statuses))
+	for _, s := range statuses {
+		allow[s] = true
+	}
+	result := make([]model.Deployment, 0)
+	for _, d := range m.deployments {
+		if allow[d.Status] {
+			result = append(result, *d)
+		}
+	}
+	return result, nil
+}
+
 type mockSvcRepoForDeployHandler struct {
 	services map[uint]*model.Service
 }
@@ -117,11 +131,13 @@ func newMockSvcRepoForDeployHandler() *mockSvcRepoForDeployHandler {
 	return &mockSvcRepoForDeployHandler{services: make(map[uint]*model.Service)}
 }
 
-func (m *mockSvcRepoForDeployHandler) Create(_ *model.Service) error              { return nil }
-func (m *mockSvcRepoForDeployHandler) FindByName(_ string) (*model.Service, error) { return nil, errors.New("不存在") }
-func (m *mockSvcRepoForDeployHandler) Update(_ *model.Service) error              { return nil }
-func (m *mockSvcRepoForDeployHandler) Delete(_ uint) error                        { return nil }
-func (m *mockSvcRepoForDeployHandler) BatchCreate(_ []*model.Service) error       { return nil }
+func (m *mockSvcRepoForDeployHandler) Create(_ *model.Service) error { return nil }
+func (m *mockSvcRepoForDeployHandler) FindByName(_ string) (*model.Service, error) {
+	return nil, errors.New("不存在")
+}
+func (m *mockSvcRepoForDeployHandler) Update(_ *model.Service) error        { return nil }
+func (m *mockSvcRepoForDeployHandler) Delete(_ uint) error                  { return nil }
+func (m *mockSvcRepoForDeployHandler) BatchCreate(_ []*model.Service) error { return nil }
 func (m *mockSvcRepoForDeployHandler) List(_, _ int) ([]model.Service, int64, error) {
 	return nil, 0, nil
 }
@@ -138,18 +154,62 @@ func (m *mockBuildRepoForDeployHandler) Create(_ *model.Build) error { return ni
 func (m *mockBuildRepoForDeployHandler) FindByID(_ uint) (*model.Build, error) {
 	return nil, errors.New("不存在")
 }
-func (m *mockBuildRepoForDeployHandler) Update(_ *model.Build) error                { return nil }
+func (m *mockBuildRepoForDeployHandler) Update(_ *model.Build) error { return nil }
 func (m *mockBuildRepoForDeployHandler) List(_, _ int, _ *uint) ([]model.Build, int64, error) {
 	return nil, 0, nil
 }
-func (m *mockBuildRepoForDeployHandler) UpdateFields(_ uint, _ map[string]interface{}) error { return nil }
-func (m *mockBuildRepoForDeployHandler) UpdateStatus(_ uint, _ string) error                { return nil }
-func (m *mockBuildRepoForDeployHandler) AppendLog(_ uint, _ string) error                   { return nil }
-func (m *mockBuildRepoForDeployHandler) Delete(id uint) error                               { return nil }
+func (m *mockBuildRepoForDeployHandler) UpdateFields(_ uint, _ map[string]interface{}) error {
+	return nil
+}
+func (m *mockBuildRepoForDeployHandler) UpdateStatus(_ uint, _ string) error { return nil }
+func (m *mockBuildRepoForDeployHandler) AppendLog(_ uint, _ string) error    { return nil }
+func (m *mockBuildRepoForDeployHandler) Delete(id uint) error                { return nil }
+
+type mockClusterNsRepoForDeployHandler struct {
+	items map[uint]map[string]*model.ClusterNamespace
+}
+
+func newMockClusterNsRepoForDeployHandler() *mockClusterNsRepoForDeployHandler {
+	return &mockClusterNsRepoForDeployHandler{
+		items: make(map[uint]map[string]*model.ClusterNamespace),
+	}
+}
+
+func (m *mockClusterNsRepoForDeployHandler) Create(ns *model.ClusterNamespace) error {
+	if m.items[ns.ClusterID] == nil {
+		m.items[ns.ClusterID] = make(map[string]*model.ClusterNamespace)
+	}
+	m.items[ns.ClusterID][ns.Namespace] = ns
+	return nil
+}
+
+func (m *mockClusterNsRepoForDeployHandler) Delete(_ uint) error { return nil }
+
+func (m *mockClusterNsRepoForDeployHandler) ListByCluster(clusterID uint) ([]model.ClusterNamespace, error) {
+	clusterItems := m.items[clusterID]
+	out := make([]model.ClusterNamespace, 0, len(clusterItems))
+	for _, item := range clusterItems {
+		out = append(out, *item)
+	}
+	return out, nil
+}
+
+func (m *mockClusterNsRepoForDeployHandler) FindByClusterAndNamespace(clusterID uint, namespace string) (*model.ClusterNamespace, error) {
+	clusterItems := m.items[clusterID]
+	if clusterItems == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	item, ok := clusterItems[namespace]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return item, nil
+}
 
 var _ repository.DeploymentRepository = (*mockDeployRepoForHandler)(nil)
 var _ repository.ServiceRepository = (*mockSvcRepoForDeployHandler)(nil)
 var _ repository.BuildRepository = (*mockBuildRepoForDeployHandler)(nil)
+var _ repository.ClusterNamespaceRepository = (*mockClusterNsRepoForDeployHandler)(nil)
 
 func setupDeployTestRouter() (*gin.Engine, *deploy.DeployService) {
 	gin.SetMode(gin.TestMode)
@@ -167,8 +227,14 @@ func setupDeployTestRouter() (*gin.Engine, *deploy.DeployService) {
 		Port:      8080,
 	}
 	buildRepo := &mockBuildRepoForDeployHandler{}
+	clusterNsRepo := newMockClusterNsRepoForDeployHandler()
+	_ = clusterNsRepo.Create(&model.ClusterNamespace{
+		ClusterID: clusterID,
+		Namespace: "default",
+		IsDefault: true,
+	})
 
-	deploySvc := deploy.NewDeployService(deployRepo, serviceRepo, buildRepo)
+	deploySvc := deploy.NewDeployService(deployRepo, serviceRepo, buildRepo, clusterNsRepo)
 	handler := NewDeployHandler(deploySvc, nil, nil, nil, nil, nil, nil, nil)
 
 	r := gin.New()

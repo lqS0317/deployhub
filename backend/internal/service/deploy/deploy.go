@@ -14,9 +14,10 @@ import (
 
 // DeployService 部署业务逻辑
 type DeployService struct {
-	deployRepo  repository.DeploymentRepository
-	serviceRepo repository.ServiceRepository
-	buildRepo   repository.BuildRepository
+	deployRepo    repository.DeploymentRepository
+	serviceRepo   repository.ServiceRepository
+	buildRepo     repository.BuildRepository
+	clusterNsRepo repository.ClusterNamespaceRepository
 }
 
 // NewDeployService 创建部署服务
@@ -24,11 +25,13 @@ func NewDeployService(
 	deployRepo repository.DeploymentRepository,
 	serviceRepo repository.ServiceRepository,
 	buildRepo repository.BuildRepository,
+	clusterNsRepo repository.ClusterNamespaceRepository,
 ) *DeployService {
 	return &DeployService{
-		deployRepo:  deployRepo,
-		serviceRepo: serviceRepo,
-		buildRepo:   buildRepo,
+		deployRepo:    deployRepo,
+		serviceRepo:   serviceRepo,
+		buildRepo:     buildRepo,
+		clusterNsRepo: clusterNsRepo,
 	}
 }
 
@@ -111,6 +114,11 @@ func (s *DeployService) CreateDeployment(serviceID, userID, clusterID uint, name
 	}
 	if deployClusterID == 0 {
 		return nil, fmt.Errorf("必须指定目标集群")
+	}
+
+	// namespace 必须在该集群已登记的映射列表中（防止前端被绕过）
+	if err := s.validateNamespaceMapping(deployClusterID, deployNamespace); err != nil {
+		return nil, err
 	}
 
 	deployment := &model.Deployment{
@@ -228,6 +236,11 @@ func (s *DeployService) Rollback(deploymentID, userID uint) (*model.Deployment, 
 		return nil, fmt.Errorf("该服务存在进行中的部署 (ID: %d)，无法回滚", active.ID)
 	}
 
+	// 防御：原部署 namespace 映射可能在期间被删除
+	if err := s.validateNamespaceMapping(original.ClusterID, original.Namespace); err != nil {
+		return nil, err
+	}
+
 	// 回滚使用原部署的集群和命名空间
 	rollbackDep := &model.Deployment{
 		ServiceID:        original.ServiceID,
@@ -289,4 +302,23 @@ func (s *DeployService) CancelDeploy(id uint) error {
 		return fmt.Errorf("当前状态不允许取消: %s", dep.Status)
 	}
 	return s.deployRepo.UpdateStatus(id, model.DeployStatusCancelled)
+}
+
+// validateNamespaceMapping 校验 namespace 是否登记在目标集群的映射表中
+func (s *DeployService) validateNamespaceMapping(clusterID uint, namespace string) error {
+	if s.clusterNsRepo == nil {
+		// 兜底：未注入 repo 时跳过校验，避免影响测试或异常装配场景
+		return nil
+	}
+	if namespace == "" {
+		return fmt.Errorf("命名空间不能为空，请先在集群管理中配置 namespace 映射")
+	}
+	_, err := s.clusterNsRepo.FindByClusterAndNamespace(clusterID, namespace)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("命名空间 %q 未在集群映射列表中，请先在集群管理中配置", namespace)
+		}
+		return fmt.Errorf("校验命名空间映射失败: %w", err)
+	}
+	return nil
 }

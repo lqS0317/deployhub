@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { Cluster } from "@/types";
+import { useAddClusterNamespace, useClusterNamespaces, useDeleteClusterNamespace, useSyncClusterNamespaces } from "@/hooks/use-namespaces";
+import type { Cluster, ClusterNamespace } from "@/types";
 
 interface ClusterForm {
   name: string;
@@ -33,6 +34,9 @@ export default function ClustersPage() {
   const [form, setForm] = useState<ClusterForm>(emptyForm);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testResult, setTestResult] = useState<Record<number, { ok: boolean; msg: string }>>({});
+  const [namespaceCluster, setNamespaceCluster] = useState<Cluster | null>(null);
+  const [namespaceInput, setNamespaceInput] = useState("");
+  const [namespaceIsDefault, setNamespaceIsDefault] = useState(false);
 
   const { data: clustersData, isLoading } = useQuery({
     queryKey: ["clusters"],
@@ -42,6 +46,12 @@ export default function ClustersPage() {
     },
   });
   const clusters: Cluster[] = clustersData?.items ?? [];
+  const namespaceClusterId = namespaceCluster?.id ?? 0;
+
+  const { data: clusterNamespaces, isLoading: namespacesLoading } = useClusterNamespaces(namespaceClusterId);
+  const addNamespaceMutation = useAddClusterNamespace(namespaceClusterId);
+  const deleteNamespaceMutation = useDeleteClusterNamespace(namespaceClusterId);
+  const syncNamespacesMutation = useSyncClusterNamespaces(namespaceClusterId);
 
   const createMutation = useMutation({
     mutationFn: async (data: ClusterForm) => {
@@ -124,6 +134,31 @@ export default function ClustersPage() {
     } else {
       createMutation.mutate(form);
     }
+  };
+
+  const openNamespaceDialog = (cluster: Cluster) => {
+    setNamespaceCluster(cluster);
+    setNamespaceInput("");
+    setNamespaceIsDefault(false);
+  };
+
+  const closeNamespaceDialog = () => {
+    setNamespaceCluster(null);
+    setNamespaceInput("");
+    setNamespaceIsDefault(false);
+  };
+
+  const addNamespace = () => {
+    if (!namespaceInput.trim() || !namespaceClusterId) return;
+    addNamespaceMutation.mutate(
+      { namespace: namespaceInput.trim(), is_default: namespaceIsDefault },
+      {
+        onSuccess: () => {
+          setNamespaceInput("");
+          setNamespaceIsDefault(false);
+        },
+      }
+    );
   };
 
   const statusBadge = (status: string) => {
@@ -231,6 +266,12 @@ export default function ClustersPage() {
                         className="text-xs text-gray-600 hover:text-gray-800"
                       >
                         编辑
+                      </button>
+                      <button
+                        onClick={() => openNamespaceDialog(cluster)}
+                        className="text-xs text-purple-600 hover:text-purple-800"
+                      >
+                        命名空间映射
                       </button>
                       <button
                         onClick={() => {
@@ -354,6 +395,116 @@ export default function ClustersPage() {
                   : editingId
                     ? "保存"
                     : "添加"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 命名空间映射管理 */}
+      {namespaceCluster && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={closeNamespaceDialog} />
+          <div className="relative w-full max-w-2xl rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                命名空间映射 - {namespaceCluster.display_name || namespaceCluster.name}
+              </h3>
+              <button onClick={closeNamespaceDialog} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
+                发布流程只允许选择此处已登记的 namespace。未配置映射将无法发起部署。
+              </div>
+
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="min-w-[240px] flex-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">新增 namespace</label>
+                  <input
+                    type="text"
+                    value={namespaceInput}
+                    onChange={(e) => setNamespaceInput(e.target.value)}
+                    placeholder="例如：ops / production"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <label className="mb-2 flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={namespaceIsDefault}
+                    onChange={(e) => setNamespaceIsDefault(e.target.checked)}
+                  />
+                  设为默认
+                </label>
+                <button
+                  onClick={addNamespace}
+                  disabled={!namespaceInput.trim() || addNamespaceMutation.isPending}
+                  className="mb-0.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {addNamespaceMutation.isPending ? "添加中..." : "添加"}
+                </button>
+                <button
+                  onClick={() => syncNamespacesMutation.mutate()}
+                  disabled={syncNamespacesMutation.isPending}
+                  className="mb-0.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {syncNamespacesMutation.isPending ? "同步中..." : "从集群同步"}
+                </button>
+              </div>
+
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-200">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Namespace</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">默认</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {namespacesLoading ? (
+                      <tr>
+                        <td className="px-3 py-4 text-sm text-gray-500" colSpan={3}>加载中...</td>
+                      </tr>
+                    ) : (clusterNamespaces ?? []).length === 0 ? (
+                      <tr>
+                        <td className="px-3 py-4 text-sm text-gray-500" colSpan={3}>
+                          当前无 namespace 映射，请先添加
+                        </td>
+                      </tr>
+                    ) : (
+                      (clusterNamespaces as ClusterNamespace[]).map((ns) => (
+                        <tr key={ns.id}>
+                          <td className="px-3 py-2 text-sm font-mono text-gray-800">{ns.namespace}</td>
+                          <td className="px-3 py-2 text-sm">
+                            {ns.is_default ? (
+                              <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">默认</span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-sm">
+                            <button
+                              onClick={() => deleteNamespaceMutation.mutate(ns.id)}
+                              disabled={deleteNamespaceMutation.isPending}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              删除
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="flex justify-end border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={closeNamespaceDialog}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                关闭
               </button>
             </div>
           </div>
