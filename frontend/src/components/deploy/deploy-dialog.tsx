@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCreateDeployment } from "@/hooks/use-deployments";
-import { useClusterNamespaces } from "@/hooks/use-cluster-namespaces";
+import { useClusterNamespaces } from "@/hooks/use-namespaces";
 import { useEnvImage } from "@/hooks/use-env-image";
 import apiClient from "@/lib/api-client";
 import type { Build, Service } from "@/types";
@@ -67,11 +67,11 @@ export function DeployDialog({ defaultServiceId, onClose }: DeployDialogProps) {
   const selectedClusterId = Number(clusterId) || 0;
 
   const {
-    data: clusterNamespacesData,
+    data: namespaceItemsData,
     isLoading: namespaceLoading,
     isError: namespaceLoadError,
-  } = useClusterNamespaces(selectedClusterId > 0 ? selectedClusterId : undefined);
-  const namespaceItems = clusterNamespacesData?.items ?? [];
+  } = useClusterNamespaces(selectedClusterId);
+  const namespaceItems = namespaceItemsData ?? [];
   const namespaceOptions = namespaceItems.map((item) => item.namespace);
   const noNamespaceMapping =
     !!clusterId && !namespaceLoading && !namespaceLoadError && namespaceItems.length === 0;

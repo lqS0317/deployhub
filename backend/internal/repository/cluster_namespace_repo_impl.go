@@ -30,6 +30,8 @@ func (r *clusterNamespaceRepository) ListByCluster(clusterID uint) ([]model.Clus
 
 func (r *clusterNamespaceRepository) FindByClusterAndNamespace(clusterID uint, namespace string) (*model.ClusterNamespace, error) {
 	var ns model.ClusterNamespace
-	err := r.db.Where("cluster_id = ? AND namespace = ?", clusterID, namespace).First(&ns).Error
-	return &ns, err
+	if err := r.db.Where("cluster_id = ? AND namespace = ?", clusterID, namespace).First(&ns).Error; err != nil {
+		return nil, err
+	}
+	return &ns, nil
 }

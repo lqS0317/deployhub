@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -12,6 +13,7 @@ import (
 	"deployhub/internal/service/cluster"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -87,14 +89,21 @@ func (h *NamespaceHandler) Sync(c *gin.Context) {
 
 	var added []string
 	for _, ns := range nsList.Items {
-		existing, _ := h.nsRepo.FindByClusterAndNamespace(uint(clusterID), ns.Name)
+		existing, err := h.nsRepo.FindByClusterAndNamespace(uint(clusterID), ns.Name)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			pkg.Error(c, http.StatusInternalServerError, pkg.CodeInternalError, "查询 namespace 映射失败")
+			return
+		}
 		if existing != nil {
 			continue
 		}
-		_ = h.nsRepo.Create(&model.ClusterNamespace{
+		if err := h.nsRepo.Create(&model.ClusterNamespace{
 			ClusterID: uint(clusterID),
 			Namespace: ns.Name,
-		})
+		}); err != nil {
+			pkg.Error(c, http.StatusInternalServerError, pkg.CodeInternalError, "创建 namespace 映射失败")
+			return
+		}
 		added = append(added, ns.Name)
 	}
 
