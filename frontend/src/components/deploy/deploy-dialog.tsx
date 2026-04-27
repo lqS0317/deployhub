@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCreateDeployment } from "@/hooks/use-deployments";
+import { useClusterNamespaces } from "@/hooks/use-cluster-namespaces";
 import { useEnvImage } from "@/hooks/use-env-image";
 import apiClient from "@/lib/api-client";
 import type { Build, Service } from "@/types";
@@ -15,7 +16,7 @@ interface DeployDialogProps {
 export function DeployDialog({ defaultServiceId, onClose }: DeployDialogProps) {
   const [serviceId, setServiceId] = useState(defaultServiceId || "");
   const [clusterId, setClusterId] = useState("");
-  const [namespace, setNamespace] = useState("default");
+  const [namespace, setNamespace] = useState("");
   const [buildId, setBuildId] = useState("");
   const [imageSource, setImageSource] = useState("build");
   const [externalImage, setExternalImage] = useState("");
@@ -63,17 +64,50 @@ export function DeployDialog({ defaultServiceId, onClose }: DeployDialogProps) {
   );
   const selectedBuild = successBuilds.find((b: Build) => String(b.id) === buildId);
   const isHelm = deployType === "helm";
+  const selectedClusterId = Number(clusterId) || 0;
+
+  const {
+    data: clusterNamespacesData,
+    isLoading: namespaceLoading,
+    isError: namespaceLoadError,
+  } = useClusterNamespaces(selectedClusterId > 0 ? selectedClusterId : undefined);
+  const namespaceItems = clusterNamespacesData?.items ?? [];
+  const namespaceOptions = namespaceItems.map((item) => item.namespace);
+  const noNamespaceMapping =
+    !!clusterId && !namespaceLoading && !namespaceLoadError && namespaceItems.length === 0;
 
   const { data: envImageData, isLoading: envImageLoading } = useEnvImage(
     selectedService?.id ?? 0,
     imageSource === "env_file" && !!selectedService?.helm_env_file_path
   );
 
+  useEffect(() => {
+    if (!clusterId) {
+      if (namespace !== "") {
+        setNamespace("");
+      }
+      return;
+    }
+
+    if (namespaceLoading || namespaceLoadError) {
+      return;
+    }
+
+    const firstNamespace = namespaceItems[0]?.namespace ?? "";
+    if (!namespaceOptions.includes(namespace)) {
+      setNamespace(firstNamespace);
+    }
+  }, [clusterId, namespace, namespaceItems, namespaceLoading, namespaceLoadError, namespaceOptions]);
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!serviceId) newErrors.serviceId = "请选择服务";
     if (!clusterId) newErrors.clusterId = "请选择集群";
-    if (!namespace.trim()) newErrors.namespace = "请输入命名空间";
+    if (namespaceLoadError) {
+      newErrors.namespace = "命名空间列表加载失败，请稍后重试";
+    } else if (noNamespaceMapping || !namespace || !namespaceOptions.includes(namespace)) {
+      newErrors.namespace = "请选择有效的命名空间";
+    }
     if (imageSource === "build" && !buildId && !isHelm) newErrors.buildId = "请选择构建版本";
     if (imageSource === "external" && !externalImage.trim()) newErrors.externalImage = "请输入镜像地址";
     if (imageSource === "env_file" && !selectedService?.helm_env_file_path) newErrors.imageSource = "该服务未配置 env 文件路径";
@@ -201,7 +235,11 @@ export function DeployDialog({ defaultServiceId, onClose }: DeployDialogProps) {
               </label>
               <select
                 value={clusterId}
-                onChange={(e) => setClusterId(e.target.value)}
+                onChange={(e) => {
+                  setClusterId(e.target.value);
+                  setNamespace("");
+                  setErrors({});
+                }}
                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${errors.clusterId ? "border-red-300" : "border-gray-300"} focus:border-blue-500 focus:ring-blue-500`}
               >
                 <option value="">请选择</option>
@@ -215,11 +253,37 @@ export function DeployDialog({ defaultServiceId, onClose }: DeployDialogProps) {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 服务命名空间 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text" value={namespace} onChange={(e) => setNamespace(e.target.value)}
-                placeholder="default"
+              <select
+                value={namespace}
+                onChange={(e) => setNamespace(e.target.value)}
+                disabled={!clusterId || namespaceLoading || namespaceLoadError || namespaceItems.length === 0}
                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${errors.namespace ? "border-red-300" : "border-gray-300"} focus:border-blue-500 focus:ring-blue-500`}
-              />
+              >
+                {!clusterId ? (
+                  <option value="">请先选择集群</option>
+                ) : namespaceLoading ? (
+                  <option value="">加载命名空间中...</option>
+                ) : namespaceLoadError ? (
+                  <option value="">命名空间加载失败</option>
+                ) : namespaceItems.length === 0 ? (
+                  <option value="">暂无可用 namespace</option>
+                ) : (
+                  namespaceItems.map((ns) => (
+                    <option key={ns.id} value={ns.namespace}>
+                      {ns.namespace}
+                      {ns.is_default ? "（默认）" : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+              {noNamespaceMapping && (
+                <p className="mt-1 text-xs text-red-500">
+                  该集群未配置 namespace 映射，请先在集群管理中配置
+                </p>
+              )}
+              {namespaceLoadError && (
+                <p className="mt-1 text-xs text-red-500">命名空间列表加载失败，请稍后重试</p>
+              )}
               {errors.namespace && <p className="mt-1 text-xs text-red-500">{errors.namespace}</p>}
             </div>
           </div>
@@ -373,7 +437,9 @@ export function DeployDialog({ defaultServiceId, onClose }: DeployDialogProps) {
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               取消
             </button>
-            <button type="submit" disabled={createDeployment.isPending}
+            <button
+              type="submit"
+              disabled={createDeployment.isPending || namespaceLoading || noNamespaceMapping || namespaceLoadError}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
               {createDeployment.isPending ? "提交中..." : "确认部署"}
             </button>

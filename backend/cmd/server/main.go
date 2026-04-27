@@ -84,6 +84,7 @@ func main() {
 	routePermissionRepo := repository.NewRoutePermissionRepository(db)
 	routePluginRepo := repository.NewRoutePluginRepository(db)
 	pluginDeploymentRepo := repository.NewPluginDeploymentRepository(db)
+	clusterNsRepo := repository.NewClusterNamespaceRepository(db)
 	// 初始化 Service
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret)
 	authSvc := auth.NewAuthService(userRepo, jwtSvc, cryptoSvc)
@@ -107,7 +108,7 @@ func main() {
 
 	buildSvc := build.NewBuildService(buildRepo, serviceRepo)
 	buildExecutor := build.NewBuildExecutor(clientPool, buildRepo, serviceRepo, registryRepo, gitRepoRepo, clusterRepo, cryptoSvc, settingSvc, wsHub, notifDispatcher)
-	deploySvc := deploy.NewDeployService(deployRepo, serviceRepo, buildRepo)
+	deploySvc := deploy.NewDeployService(deployRepo, serviceRepo, buildRepo, clusterNsRepo)
 	approvalSvc := approval.NewApprovalService(approvalRepo, deployRepo, userRepo, notifDispatcher)
 	cfgSvc := configSvc.NewConfigService(configTemplateRepo, configEnvValueRepo, configVersionRepo, configDeployRepo, cryptoSvc, clientPool)
 	notifSvc := notification.NewNotificationService(notifRepo)
@@ -146,7 +147,6 @@ func main() {
 	notifChannelHandler := handler.NewNotificationChannelHandler(notifChannelRepo, webhookSender)
 	auditHandler := handler.NewAuditHandler(auditSvc)
 	userAdminHandler := handler.NewUserAdminHandler(userRepo, authSvc, groupMemberRepo)
-	clusterNsRepo := repository.NewClusterNamespaceRepository(db)
 	envImageFetcher := deploy.NewEnvImageFetcher(gitRepoRepo, cryptoSvc)
 	envImageHandler := handler.NewEnvImageHandler(envImageFetcher, serviceSvc)
 	namespaceHandler := handler.NewNamespaceHandler(clusterNsRepo, clientPool)

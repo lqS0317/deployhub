@@ -55,6 +55,13 @@ func (m *mockDeployRepo) UpdateField(id uint, field string, value interface{}) e
 	return m.Called(id, field, value).Error(0)
 }
 func (m *mockDeployRepo) Delete(id uint) error { return m.Called(id).Error(0) }
+func (m *mockDeployRepo) FindByStatuses(statuses []string) ([]model.Deployment, error) {
+	args := m.Called(statuses)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Deployment), args.Error(1)
+}
 
 type mockServiceRepo struct{ mock.Mock }
 
@@ -73,8 +80,8 @@ func (m *mockServiceRepo) FindByName(name string) (*model.Service, error) {
 	}
 	return args.Get(0).(*model.Service), args.Error(1)
 }
-func (m *mockServiceRepo) Update(svc *model.Service) error   { return m.Called(svc).Error(0) }
-func (m *mockServiceRepo) Delete(id uint) error              { return m.Called(id).Error(0) }
+func (m *mockServiceRepo) Update(svc *model.Service) error      { return m.Called(svc).Error(0) }
+func (m *mockServiceRepo) Delete(id uint) error                 { return m.Called(id).Error(0) }
 func (m *mockServiceRepo) BatchCreate(s []*model.Service) error { return m.Called(s).Error(0) }
 func (m *mockServiceRepo) List(page, pageSize int) ([]model.Service, int64, error) {
 	args := m.Called(page, pageSize)
@@ -91,24 +98,57 @@ func (m *mockBuildRepo) FindByID(id uint) (*model.Build, error) {
 	}
 	return args.Get(0).(*model.Build), args.Error(1)
 }
-func (m *mockBuildRepo) Update(b *model.Build) error                              { return m.Called(b).Error(0) }
-func (m *mockBuildRepo) UpdateFields(id uint, fields map[string]interface{}) error { return m.Called(id, fields).Error(0) }
-func (m *mockBuildRepo) UpdateStatus(id uint, status string) error                 { return m.Called(id, status).Error(0) }
-func (m *mockBuildRepo) AppendLog(id uint, logChunk string) error  { return m.Called(id, logChunk).Error(0) }
+func (m *mockBuildRepo) Update(b *model.Build) error { return m.Called(b).Error(0) }
+func (m *mockBuildRepo) UpdateFields(id uint, fields map[string]interface{}) error {
+	return m.Called(id, fields).Error(0)
+}
+func (m *mockBuildRepo) UpdateStatus(id uint, status string) error {
+	return m.Called(id, status).Error(0)
+}
+func (m *mockBuildRepo) AppendLog(id uint, logChunk string) error {
+	return m.Called(id, logChunk).Error(0)
+}
 func (m *mockBuildRepo) List(page, pageSize int, serviceID *uint) ([]model.Build, int64, error) {
 	args := m.Called(page, pageSize, serviceID)
 	return args.Get(0).([]model.Build), args.Get(1).(int64), args.Error(2)
 }
 func (m *mockBuildRepo) Delete(id uint) error { return nil }
 
+type mockClusterNsRepo struct{ mock.Mock }
+
+func (m *mockClusterNsRepo) Create(ns *model.ClusterNamespace) error { return m.Called(ns).Error(0) }
+func (m *mockClusterNsRepo) Delete(id uint) error                    { return m.Called(id).Error(0) }
+func (m *mockClusterNsRepo) ListByCluster(clusterID uint) ([]model.ClusterNamespace, error) {
+	args := m.Called(clusterID)
+	return args.Get(0).([]model.ClusterNamespace), args.Error(1)
+}
+func (m *mockClusterNsRepo) FindByClusterAndNamespace(clusterID uint, namespace string) (*model.ClusterNamespace, error) {
+	args := m.Called(clusterID, namespace)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ClusterNamespace), args.Error(1)
+}
+
 // ==================== 辅助函数 ====================
 
+// newTestDeployService 默认不注入 clusterNsRepo（nil 时校验跳过），保持旧测试不需改
 func newTestDeployService() (*DeployService, *mockDeployRepo, *mockServiceRepo, *mockBuildRepo) {
 	dr := new(mockDeployRepo)
 	sr := new(mockServiceRepo)
 	br := new(mockBuildRepo)
-	svc := NewDeployService(dr, sr, br)
+	svc := NewDeployService(dr, sr, br, nil)
 	return svc, dr, sr, br
+}
+
+// newTestDeployServiceWithNs 注入 ClusterNamespaceRepository 的版本，用于 namespace 映射校验测试
+func newTestDeployServiceWithNs() (*DeployService, *mockDeployRepo, *mockServiceRepo, *mockBuildRepo, *mockClusterNsRepo) {
+	dr := new(mockDeployRepo)
+	sr := new(mockServiceRepo)
+	br := new(mockBuildRepo)
+	nr := new(mockClusterNsRepo)
+	svc := NewDeployService(dr, sr, br, nr)
+	return svc, dr, sr, br, nr
 }
 
 // ==================== 测试 ====================
@@ -215,6 +255,54 @@ func TestCreateDeployment_ServiceNotFound(t *testing.T) {
 	_, err := svc.CreateDeployment(999, 42, 10, "ns", nil, "v1.0.0", "build", "", DeployConfig{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "服务不存在")
+}
+
+func TestCreateDeployment_RejectsNamespaceNotInMapping(t *testing.T) {
+	svc, dr, sr, _, nr := newTestDeployServiceWithNs()
+
+	clusterID := uint(10)
+	service := &model.Service{
+		ID:        1,
+		ClusterID: &clusterID,
+		Namespace: "ops",
+		Replicas:  2,
+		ImageRepo: "registry.example.com/app",
+	}
+	sr.On("FindByID", uint(1)).Return(service, nil)
+	dr.On("FindActiveByService", uint(1)).Return(nil, gorm.ErrRecordNotFound)
+	dr.On("FindLastSuccessful", uint(1)).Return(nil, gorm.ErrRecordNotFound)
+	nr.On("FindByClusterAndNamespace", uint(10), "hack").Return(nil, gorm.ErrRecordNotFound)
+
+	_, err := svc.CreateDeployment(1, 42, 10, "hack", nil, "v1.0.0", "build", "", DeployConfig{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "未在集群映射列表中")
+}
+
+func TestCreateDeployment_AcceptsValidNamespace(t *testing.T) {
+	svc, dr, sr, _, nr := newTestDeployServiceWithNs()
+
+	clusterID := uint(10)
+	service := &model.Service{
+		ID:        1,
+		ClusterID: &clusterID,
+		Namespace: "ops",
+		Replicas:  2,
+		ImageRepo: "registry.example.com/app",
+	}
+	sr.On("FindByID", uint(1)).Return(service, nil)
+	nr.On("FindByClusterAndNamespace", uint(10), "ops").Return(&model.ClusterNamespace{
+		ID:        1,
+		ClusterID: 10,
+		Namespace: "ops",
+		IsDefault: true,
+	}, nil)
+	dr.On("FindActiveByService", uint(1)).Return(nil, gorm.ErrRecordNotFound)
+	dr.On("FindLastSuccessful", uint(1)).Return(nil, gorm.ErrRecordNotFound)
+	dr.On("Create", mock.AnythingOfType("*model.Deployment")).Return(nil)
+
+	dep, err := svc.CreateDeployment(1, 42, 10, "ops", nil, "v1.0.0", "build", "", DeployConfig{})
+	require.NoError(t, err)
+	assert.Equal(t, "ops", dep.Namespace)
 }
 
 func TestGetByID(t *testing.T) {
@@ -335,4 +423,25 @@ func TestRollback_NoPreviousImageTag(t *testing.T) {
 	_, err := svc.Rollback(10, 42)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "无可回滚的镜像")
+}
+
+func TestRollback_ValidatesNamespaceMappingStillExists(t *testing.T) {
+	svc, dr, _, _, nr := newTestDeployServiceWithNs()
+
+	original := &model.Deployment{
+		ID:               10,
+		ServiceID:        1,
+		ClusterID:        5,
+		Namespace:        "production",
+		ImageTag:         "v2.0.0",
+		PreviousImageTag: "v1.0.0",
+		Status:           model.DeployStatusSuccess,
+	}
+	dr.On("FindByID", uint(10)).Return(original, nil)
+	dr.On("FindActiveByService", uint(1)).Return(nil, gorm.ErrRecordNotFound)
+	nr.On("FindByClusterAndNamespace", uint(5), "production").Return(nil, gorm.ErrRecordNotFound)
+
+	_, err := svc.Rollback(10, 42)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "未在集群映射列表中")
 }

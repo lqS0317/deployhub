@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"deployhub/internal/middleware"
 	"deployhub/internal/model"
@@ -95,7 +96,13 @@ func (h *DeployHandler) Create(c *gin.Context) {
 		HelmServiceAccount: req.HelmServiceAccount,
 	})
 	if err != nil {
-		pkg.Error(c, http.StatusConflict, pkg.CodeConflict, err.Error())
+		// namespace 映射校验、空命名空间、缺少集群 → 400；其它（如活跃部署冲突）→ 409
+		msg := err.Error()
+		if strings.Contains(msg, "未在集群映射列表") || strings.Contains(msg, "命名空间不能为空") || strings.Contains(msg, "必须指定目标集群") {
+			pkg.Error(c, http.StatusBadRequest, pkg.CodeBadRequest, msg)
+		} else {
+			pkg.Error(c, http.StatusConflict, pkg.CodeConflict, msg)
+		}
 		return
 	}
 
@@ -251,7 +258,12 @@ func (h *DeployHandler) Rollback(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	dep, err := h.deploySvc.Rollback(uint(id), userID)
 	if err != nil {
-		pkg.Error(c, http.StatusConflict, pkg.CodeConflict, err.Error())
+		msg := err.Error()
+		if strings.Contains(msg, "未在集群映射列表") || strings.Contains(msg, "命名空间不能为空") {
+			pkg.Error(c, http.StatusBadRequest, pkg.CodeBadRequest, msg)
+		} else {
+			pkg.Error(c, http.StatusConflict, pkg.CodeConflict, msg)
+		}
 		return
 	}
 
