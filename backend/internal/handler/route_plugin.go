@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -147,6 +148,10 @@ func (h *RoutePluginHandler) DeployPlugin(c *gin.Context) {
 		return
 	}
 	if err := h.svc.DeployPlugin(uint(id), req.ClusterID, req.Namespace); err != nil {
+		if errors.Is(err, routing.ErrNamespaceNotMapped) {
+			pkg.Error(c, http.StatusBadRequest, pkg.CodeBadRequest, err.Error())
+			return
+		}
 		pkg.Error(c, http.StatusInternalServerError, pkg.CodeInternalError, err.Error())
 		return
 	}

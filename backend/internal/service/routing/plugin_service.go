@@ -10,21 +10,24 @@ import (
 
 // PluginService 路由插件服务
 type PluginService struct {
-	pluginRepo repository.RoutePluginRepository
-	deployRepo repository.PluginDeploymentRepository
-	deployer   *K8sRouteDeployer
+	pluginRepo    repository.RoutePluginRepository
+	deployRepo    repository.PluginDeploymentRepository
+	clusterNsRepo repository.ClusterNamespaceRepository
+	deployer      *K8sRouteDeployer
 }
 
 // NewPluginService 创建插件服务
 func NewPluginService(
 	pluginRepo repository.RoutePluginRepository,
 	deployRepo repository.PluginDeploymentRepository,
+	clusterNsRepo repository.ClusterNamespaceRepository,
 	deployer *K8sRouteDeployer,
 ) *PluginService {
 	return &PluginService{
-		pluginRepo: pluginRepo,
-		deployRepo: deployRepo,
-		deployer:   deployer,
+		pluginRepo:    pluginRepo,
+		deployRepo:    deployRepo,
+		clusterNsRepo: clusterNsRepo,
+		deployer:      deployer,
 	}
 }
 
@@ -66,6 +69,10 @@ func (s *PluginService) DeletePlugin(id uint) error {
 
 // DeployPlugin 将插件部署到指定集群和命名空间
 func (s *PluginService) DeployPlugin(pluginID, clusterID uint, namespace string) error {
+	if err := validateClusterNamespace(s.clusterNsRepo, clusterID, namespace); err != nil {
+		return err
+	}
+
 	plugin, err := s.pluginRepo.FindByID(pluginID)
 	if err != nil {
 		return fmt.Errorf("插件不存在: %w", err)

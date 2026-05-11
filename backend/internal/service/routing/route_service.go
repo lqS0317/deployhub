@@ -10,21 +10,24 @@ import (
 
 // RouteService 路由条目服务
 type RouteService struct {
-	entryRepo  repository.RouteEntryRepository
-	deployRepo repository.RouteDeploymentRepository
-	deployer   *K8sRouteDeployer
+	entryRepo     repository.RouteEntryRepository
+	deployRepo    repository.RouteDeploymentRepository
+	clusterNsRepo repository.ClusterNamespaceRepository
+	deployer      *K8sRouteDeployer
 }
 
 // NewRouteService 创建路由服务
 func NewRouteService(
 	entryRepo repository.RouteEntryRepository,
 	deployRepo repository.RouteDeploymentRepository,
+	clusterNsRepo repository.ClusterNamespaceRepository,
 	deployer *K8sRouteDeployer,
 ) *RouteService {
 	return &RouteService{
-		entryRepo:  entryRepo,
-		deployRepo: deployRepo,
-		deployer:   deployer,
+		entryRepo:     entryRepo,
+		deployRepo:    deployRepo,
+		clusterNsRepo: clusterNsRepo,
+		deployer:      deployer,
 	}
 }
 
@@ -66,6 +69,10 @@ func (s *RouteService) DeleteEntry(id uint) error {
 
 // DeployEntry 将路由条目部署到指定集群和命名空间
 func (s *RouteService) DeployEntry(entryID, clusterID uint, namespace string) error {
+	if err := validateClusterNamespace(s.clusterNsRepo, clusterID, namespace); err != nil {
+		return err
+	}
+
 	entry, err := s.entryRepo.FindByID(entryID)
 	if err != nil {
 		return fmt.Errorf("路由条目不存在: %w", err)

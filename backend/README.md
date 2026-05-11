@@ -82,7 +82,7 @@ make test
 - `GET/POST /api/v1/registries` — 镜像仓库
 - `GET/PUT /api/v1/system-settings[/:key]` — 系统配置
 
-> 创建/回滚部署时，后端会强制校验请求中的 `namespace` 是否登记在 `cluster_namespaces(cluster_id, namespace)` 中。未登记将返回 400，杜绝脚本/旧客户端绕过前端下拉直接发到任意 namespace。
+> 创建/回滚部署、`POST /route-entries/:id/deploy`、`POST /route-plugins/:id/deploy` 都会强制校验请求中的 `namespace` 是否登记在 `cluster_namespaces(cluster_id, namespace)` 中。未登记返回 400，杜绝脚本/旧客户端绕过前端下拉直接发到任意 namespace。
 
 ## 目录结构
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { useDeployPlugin } from "@/hooks/use-route-plugins";
+import { useClusterNamespaces } from "@/hooks/use-namespaces";
 import { showToast } from "@/components/ui/toast";
 import type { Cluster, RoutePlugin, PluginDeployment } from "@/types";
 
@@ -19,7 +20,7 @@ export function DeployPluginDialog({
   plugin,
 }: DeployPluginDialogProps) {
   const [clusterId, setClusterId] = useState("");
-  const [namespace, setNamespace] = useState("default");
+  const [namespace, setNamespace] = useState("");
   const [result, setResult] = useState<PluginDeployment | null>(null);
 
   const { data: clustersRaw } = useQuery({
@@ -32,15 +33,37 @@ export function DeployPluginDialog({
   });
   const clusters: Cluster[] = Array.isArray(clustersRaw) ? clustersRaw : clustersRaw?.items ?? [];
 
+  const selectedClusterId = Number(clusterId) || 0;
+  const {
+    data: namespaceItemsData,
+    isLoading: namespaceLoading,
+    isError: namespaceLoadError,
+  } = useClusterNamespaces(selectedClusterId);
+  const namespaceItems = namespaceItemsData ?? [];
+  const namespaceOptions = namespaceItems.map((item) => item.namespace);
+  const noNamespaceMapping =
+    !!clusterId && !namespaceLoading && !namespaceLoadError && namespaceItems.length === 0;
+
   const deployPlugin = useDeployPlugin();
 
   useEffect(() => {
     if (open) {
       setResult(null);
-      setNamespace("default");
+      setNamespace("");
       setClusterId(clusters[0]?.id?.toString() || "");
     }
   }, [open, clusters]);
+
+  useEffect(() => {
+    if (!clusterId) {
+      if (namespace !== "") setNamespace("");
+      return;
+    }
+    if (namespaceLoading || namespaceLoadError) return;
+    if (!namespaceOptions.includes(namespace)) {
+      setNamespace(namespaceItems[0]?.namespace ?? "");
+    }
+  }, [clusterId, namespace, namespaceItems, namespaceLoading, namespaceLoadError, namespaceOptions]);
 
   const handleDeploy = () => {
     if (!plugin || !clusterId) return;
@@ -101,13 +124,34 @@ export function DeployPluginDialog({
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 命名空间
               </label>
-              <input
-                type="text"
+              <select
                 value={namespace}
                 onChange={(e) => setNamespace(e.target.value)}
-                placeholder="default"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+                disabled={!clusterId || namespaceLoading || namespaceLoadError || namespaceItems.length === 0}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+              >
+                {!clusterId ? (
+                  <option value="">请先选择集群</option>
+                ) : namespaceLoading ? (
+                  <option value="">加载命名空间中...</option>
+                ) : namespaceLoadError ? (
+                  <option value="">命名空间加载失败</option>
+                ) : namespaceItems.length === 0 ? (
+                  <option value="">暂无可用 namespace</option>
+                ) : (
+                  namespaceItems.map((ns) => (
+                    <option key={ns.id} value={ns.namespace}>
+                      {ns.namespace}
+                      {ns.is_default ? "（默认）" : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+              {noNamespaceMapping && (
+                <p className="mt-1 text-xs text-red-500">
+                  该集群未配置 namespace 映射，请先在集群管理中配置
+                </p>
+              )}
             </div>
           </div>
 
@@ -139,7 +183,14 @@ export function DeployPluginDialog({
           {!result && (
             <button
               onClick={handleDeploy}
-              disabled={!clusterId || !namespace || deployPlugin.isPending}
+              disabled={
+                !clusterId ||
+                !namespace ||
+                noNamespaceMapping ||
+                namespaceLoading ||
+                namespaceLoadError ||
+                deployPlugin.isPending
+              }
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {deployPlugin.isPending ? "部署中..." : "确认部署"}

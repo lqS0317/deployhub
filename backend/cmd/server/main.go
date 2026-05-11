@@ -118,8 +118,8 @@ func main() {
 
 	// 初始化路由中心
 	k8sRouteDeployer := routing.NewK8sRouteDeployer(clientPool)
-	routeSvc := routing.NewRouteService(routeEntryRepo, routeDeploymentRepo, k8sRouteDeployer)
-	pluginSvc := routing.NewPluginService(routePluginRepo, pluginDeploymentRepo, k8sRouteDeployer)
+	routeSvc := routing.NewRouteService(routeEntryRepo, routeDeploymentRepo, clusterNsRepo, k8sRouteDeployer)
+	pluginSvc := routing.NewPluginService(routePluginRepo, pluginDeploymentRepo, clusterNsRepo, k8sRouteDeployer)
 	routePermSvc := routing.NewPermissionService(routePermissionRepo)
 
 	// 初始化 Deploy 组件
