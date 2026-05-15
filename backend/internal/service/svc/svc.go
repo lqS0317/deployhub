@@ -47,7 +47,12 @@ func (s *ServiceService) Update(svc *model.Service) (*model.Service, error) {
 	if err := s.svcRepo.Update(svc); err != nil {
 		return nil, fmt.Errorf("更新服务失败: %w", err)
 	}
-	return svc, nil
+	// 重新查询以带上最新的关联信息（如 GitRepo），避免返回旧的预加载数据
+	updated, err := s.svcRepo.FindByID(svc.ID)
+	if err != nil {
+		return nil, fmt.Errorf("查询更新后的服务失败: %w", err)
+	}
+	return updated, nil
 }
 
 func (s *ServiceService) Delete(id uint) error { return s.svcRepo.Delete(id) }
