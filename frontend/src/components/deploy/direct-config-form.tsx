@@ -41,6 +41,7 @@ export function DirectConfigForm({ value, onChange }: Props) {
   const [expandedSection, setExpandedSection] = useState<string | null>("cmd");
   const [cmdText, setCmdText] = useState(value.command.join(" "));
   const [argsText, setArgsText] = useState(value.args.join(" "));
+  const [isComposing, setIsComposing] = useState(false);
 
   const update = <K extends keyof DirectConfigData>(key: K, val: DirectConfigData[K]) => {
     onChange({ ...value, [key]: val });
@@ -64,18 +65,48 @@ export function DirectConfigForm({ value, onChange }: Props) {
         <div className="space-y-2">
           <div>
             <label className="block text-xs text-gray-600 font-medium mb-1">Command（覆盖镜像 ENTRYPOINT）</label>
-            <input type="text" value={cmdText} placeholder="留空使用镜像默认，例如: /bin/sh -c"
-              onChange={(e) => setCmdText(e.target.value)}
-              onBlur={() => update("command", cmdText.trim() ? cmdText.trim().split(/\s+/) : [])}
-              className="w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono" />
+            <input
+              type="text"
+              value={cmdText}
+              placeholder="留空使用镜像默认，例如: /bin/sh -c"
+              onChange={(e) => {
+                const val = e.target.value;
+                setCmdText(val);
+                if (!isComposing) {
+                  update("command", val.trim() ? val.trim().split(/\s+/) : []);
+                }
+              }}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={(e) => {
+                setIsComposing(false);
+                const val = e.currentTarget.value;
+                update("command", val.trim() ? val.trim().split(/\s+/) : []);
+              }}
+              className="w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono"
+            />
             <p className="mt-0.5 text-xs text-gray-400">按空格分隔，如 /bin/sh -c</p>
           </div>
           <div>
             <label className="block text-xs text-gray-600 font-medium mb-1">Args（覆盖镜像 CMD）</label>
-            <input type="text" value={argsText} placeholder="留空使用镜像默认，例如: --port=8080 --config=/etc/app.yaml"
-              onChange={(e) => setArgsText(e.target.value)}
-              onBlur={() => update("args", argsText.trim() ? argsText.trim().split(/\s+/) : [])}
-              className="w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono" />
+            <input
+              type="text"
+              value={argsText}
+              placeholder="留空使用镜像默认，例如: --port=8080 --config=/etc/app.yaml"
+              onChange={(e) => {
+                const val = e.target.value;
+                setArgsText(val);
+                if (!isComposing) {
+                  update("args", val.trim() ? val.trim().split(/\s+/) : []);
+                }
+              }}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={(e) => {
+                setIsComposing(false);
+                const val = e.currentTarget.value;
+                update("args", val.trim() ? val.trim().split(/\s+/) : []);
+              }}
+              className="w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono"
+            />
             <p className="mt-0.5 text-xs text-gray-400">按空格分隔</p>
           </div>
         </div>
@@ -96,11 +127,18 @@ export function DirectConfigForm({ value, onChange }: Props) {
 
 // --- Probe 编辑子组件 ---
 function ProbeEditor({ label, value, onChange }: { label: string; value: ProbeConfig; onChange: (v: ProbeConfig) => void }) {
+  const [isComposing, setIsComposing] = useState(false);
+
+  const updateField = <K extends keyof ProbeConfig>(key: K, val: ProbeConfig[K]) => {
+    if (isComposing) return;
+    onChange({ ...value, [key]: val });
+  };
+
   return (
     <div className="space-y-1.5">
       <label className="block text-xs text-gray-600 font-medium">{label}</label>
       <div className="flex items-center gap-2">
-        <select value={value.type} onChange={(e) => onChange({ ...value, type: e.target.value })}
+        <select value={value.type} onChange={(e) => updateField("type", e.target.value)}
           className="rounded border border-gray-300 px-2 py-1 text-xs">
           <option value="">不配置</option>
           <option value="http">HTTP</option>
@@ -110,21 +148,21 @@ function ProbeEditor({ label, value, onChange }: { label: string; value: ProbeCo
         {value.type === "http" && (
           <>
             <input type="text" value={value.path || ""} placeholder="/healthz"
-              onChange={(e) => onChange({ ...value, path: e.target.value })}
+              onChange={(e) => updateField("path", e.target.value)}
               className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs" />
             <input type="number" value={value.port || ""} placeholder="端口"
-              onChange={(e) => onChange({ ...value, port: Number(e.target.value) || undefined })}
+              onChange={(e) => updateField("port", Number(e.target.value) || undefined)}
               className="w-16 rounded border border-gray-300 px-2 py-1 text-xs" />
           </>
         )}
         {value.type === "tcp" && (
           <input type="number" value={value.port || ""} placeholder="端口"
-            onChange={(e) => onChange({ ...value, port: Number(e.target.value) || undefined })}
+            onChange={(e) => updateField("port", Number(e.target.value) || undefined)}
             className="w-20 rounded border border-gray-300 px-2 py-1 text-xs" />
         )}
         {value.type === "exec" && (
           <input type="text" value={value.command || ""} placeholder="cat /tmp/healthy"
-            onChange={(e) => onChange({ ...value, command: e.target.value })}
+            onChange={(e) => updateField("command", e.target.value)}
             className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs font-mono" />
         )}
       </div>
@@ -132,11 +170,11 @@ function ProbeEditor({ label, value, onChange }: { label: string; value: ProbeCo
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500">延迟(s):</label>
           <input type="number" value={value.initialDelaySeconds || ""} placeholder="0"
-            onChange={(e) => onChange({ ...value, initialDelaySeconds: Number(e.target.value) || undefined })}
+            onChange={(e) => updateField("initialDelaySeconds", Number(e.target.value) || undefined)}
             className="w-14 rounded border border-gray-300 px-1.5 py-0.5 text-xs" />
           <label className="text-xs text-gray-500">间隔(s):</label>
           <input type="number" value={value.periodSeconds || ""} placeholder="10"
-            onChange={(e) => onChange({ ...value, periodSeconds: Number(e.target.value) || undefined })}
+            onChange={(e) => updateField("periodSeconds", Number(e.target.value) || undefined)}
             className="w-14 rounded border border-gray-300 px-1.5 py-0.5 text-xs" />
         </div>
       )}
