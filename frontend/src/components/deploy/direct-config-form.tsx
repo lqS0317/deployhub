@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // --- 类型定义（与后端 ConfigExecutor 的 JSONB 结构一致） ---
 
@@ -37,6 +37,38 @@ export function getEmptyConfig(): DirectConfigData {
   return JSON.parse(JSON.stringify(EMPTY_CONFIG));
 }
 
+function Section({
+  id,
+  title,
+  children,
+  badge,
+  expandedSection,
+  onToggle,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+  badge?: string;
+  expandedSection: string | null;
+  onToggle: (id: string) => void;
+}) {
+  const expanded = expandedSection === id;
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100"
+      >
+        <span>{title} {badge && <span className="ml-1 text-xs text-blue-600">({badge})</span>}</span>
+        <span className="text-gray-400">{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && <div className="p-3 space-y-2">{children}</div>}
+    </div>
+  );
+}
+
 export function DirectConfigForm({ value, onChange }: Props) {
   const [expandedSection, setExpandedSection] = useState<string | null>("cmd");
   const [cmdText, setCmdText] = useState(value.command.join(" "));
@@ -47,21 +79,37 @@ export function DirectConfigForm({ value, onChange }: Props) {
     onChange({ ...value, [key]: val });
   };
 
-  const Section = ({ id, title, children, badge }: { id: string; title: string; children: React.ReactNode; badge?: string }) => (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button type="button" onClick={() => setExpandedSection(expandedSection === id ? null : id)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100">
-        <span>{title} {badge && <span className="ml-1 text-xs text-blue-600">({badge})</span>}</span>
-        <span className="text-gray-400">{expandedSection === id ? "▲" : "▼"}</span>
-      </button>
-      {expandedSection === id && <div className="p-3 space-y-2">{children}</div>}
-    </div>
-  );
+  // 轻量防抖：避免每键回流导致失焦，仍能实时保存
+  useEffect(() => {
+    if (isComposing) return;
+    const t = setTimeout(() => {
+      update("command", cmdText.trim() ? cmdText.trim().split(/\s+/) : []);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [cmdText, isComposing]);
+
+  useEffect(() => {
+    if (isComposing) return;
+    const t = setTimeout(() => {
+      update("args", argsText.trim() ? argsText.trim().split(/\s+/) : []);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [argsText, isComposing]);
+
+  const toggleSection = (id: string) => {
+    setExpandedSection((current) => (current === id ? null : id));
+  };
 
   return (
     <div className="space-y-2">
       {/* 启动命令 */}
-      <Section id="cmd" title="启动命令" badge={value.command.length > 0 || value.args.length > 0 ? "已配置" : undefined}>
+      <Section
+        id="cmd"
+        title="启动命令"
+        badge={value.command.length > 0 || value.args.length > 0 ? "已配置" : undefined}
+        expandedSection={expandedSection}
+        onToggle={toggleSection}
+      >
         <div className="space-y-2">
           <div>
             <label className="block text-xs text-gray-600 font-medium mb-1">Command（覆盖镜像 ENTRYPOINT）</label>
@@ -72,15 +120,11 @@ export function DirectConfigForm({ value, onChange }: Props) {
               onChange={(e) => {
                 const val = e.target.value;
                 setCmdText(val);
-                if (!isComposing) {
-                  update("command", val.trim() ? val.trim().split(/\s+/) : []);
-                }
               }}
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={(e) => {
                 setIsComposing(false);
-                const val = e.currentTarget.value;
-                update("command", val.trim() ? val.trim().split(/\s+/) : []);
+                setCmdText(e.currentTarget.value);
               }}
               className="w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono"
             />
@@ -95,15 +139,11 @@ export function DirectConfigForm({ value, onChange }: Props) {
               onChange={(e) => {
                 const val = e.target.value;
                 setArgsText(val);
-                if (!isComposing) {
-                  update("args", val.trim() ? val.trim().split(/\s+/) : []);
-                }
               }}
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={(e) => {
                 setIsComposing(false);
-                const val = e.currentTarget.value;
-                update("args", val.trim() ? val.trim().split(/\s+/) : []);
+                setArgsText(e.currentTarget.value);
               }}
               className="w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono"
             />
@@ -113,8 +153,13 @@ export function DirectConfigForm({ value, onChange }: Props) {
       </Section>
 
       {/* 健康检查 */}
-      <Section id="probes" title="健康检查"
-        badge={value.livenessProbe.type || value.readinessProbe.type ? "已配置" : undefined}>
+      <Section
+        id="probes"
+        title="健康检查"
+        badge={value.livenessProbe.type || value.readinessProbe.type ? "已配置" : undefined}
+        expandedSection={expandedSection}
+        onToggle={toggleSection}
+      >
         <ProbeEditor label="存活探针 (Liveness)" value={value.livenessProbe}
           onChange={(p) => update("livenessProbe", p)} />
         <div className="border-t border-gray-100 my-2" />
@@ -138,7 +183,9 @@ function ProbeEditor({ label, value, onChange }: { label: string; value: ProbeCo
     <div className="space-y-1.5">
       <label className="block text-xs text-gray-600 font-medium">{label}</label>
       <div className="flex items-center gap-2">
-        <select value={value.type} onChange={(e) => updateField("type", e.target.value)}
+        <select
+          value={value.type}
+          onChange={(e) => updateField("type", e.target.value)}
           className="rounded border border-gray-300 px-2 py-1 text-xs">
           <option value="">不配置</option>
           <option value="http">HTTP</option>
@@ -147,35 +194,69 @@ function ProbeEditor({ label, value, onChange }: { label: string; value: ProbeCo
         </select>
         {value.type === "http" && (
           <>
-            <input type="text" value={value.path || ""} placeholder="/healthz"
+            <input
+              type="text"
+              value={value.path || ""}
+              placeholder="/healthz"
               onChange={(e) => updateField("path", e.target.value)}
-              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs" />
-            <input type="number" value={value.port || ""} placeholder="端口"
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={(e) => {
+                setIsComposing(false);
+                onChange({ ...value, path: e.currentTarget.value });
+              }}
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs"
+            />
+            <input
+              type="number"
+              value={value.port || ""}
+              placeholder="端口"
               onChange={(e) => updateField("port", Number(e.target.value) || undefined)}
-              className="w-16 rounded border border-gray-300 px-2 py-1 text-xs" />
+              className="w-16 rounded border border-gray-300 px-2 py-1 text-xs"
+            />
           </>
         )}
         {value.type === "tcp" && (
-          <input type="number" value={value.port || ""} placeholder="端口"
+          <input
+            type="number"
+            value={value.port || ""}
+            placeholder="端口"
             onChange={(e) => updateField("port", Number(e.target.value) || undefined)}
-            className="w-20 rounded border border-gray-300 px-2 py-1 text-xs" />
+            className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+          />
         )}
         {value.type === "exec" && (
-          <input type="text" value={value.command || ""} placeholder="cat /tmp/healthy"
+          <input
+            type="text"
+            value={value.command || ""}
+            placeholder="cat /tmp/healthy"
             onChange={(e) => updateField("command", e.target.value)}
-            className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs font-mono" />
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={(e) => {
+              setIsComposing(false);
+              onChange({ ...value, command: e.currentTarget.value });
+            }}
+            className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs font-mono"
+          />
         )}
       </div>
       {value.type && (
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500">延迟(s):</label>
-          <input type="number" value={value.initialDelaySeconds || ""} placeholder="0"
+          <input
+            type="number"
+            value={value.initialDelaySeconds || ""}
+            placeholder="0"
             onChange={(e) => updateField("initialDelaySeconds", Number(e.target.value) || undefined)}
-            className="w-14 rounded border border-gray-300 px-1.5 py-0.5 text-xs" />
+            className="w-14 rounded border border-gray-300 px-1.5 py-0.5 text-xs"
+          />
           <label className="text-xs text-gray-500">间隔(s):</label>
-          <input type="number" value={value.periodSeconds || ""} placeholder="10"
+          <input
+            type="number"
+            value={value.periodSeconds || ""}
+            placeholder="10"
             onChange={(e) => updateField("periodSeconds", Number(e.target.value) || undefined)}
-            className="w-14 rounded border border-gray-300 px-1.5 py-0.5 text-xs" />
+            className="w-14 rounded border border-gray-300 px-1.5 py-0.5 text-xs"
+          />
         </div>
       )}
     </div>
